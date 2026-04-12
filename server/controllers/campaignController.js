@@ -49,7 +49,7 @@ const getCampaignById = async (req, res, next) => {
       });
     }
 
-    const missions = await CampaignModel.getMissions(id);
+    const missions = await CampaignModel.getMissions(id, req.user?.id);
 
     res.status(200).json({
       success: true,

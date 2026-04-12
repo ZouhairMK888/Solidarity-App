@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const MissionModel = require('./Mission');
 
 class CampaignModel {
   static async findAll({ status, search, page = 1, limit = 12 } = {}) {
@@ -58,17 +59,8 @@ class CampaignModel {
     return rows[0] || null;
   }
 
-  static async getMissions(campaignId) {
-    const [rows] = await pool.query(
-      `SELECT m.*,
-        (SELECT COUNT(*) FROM task_assignments ta WHERE ta.mission_id = m.id AND ta.status != 'cancelled') as assigned_count,
-        (SELECT COUNT(*) FROM volunteer_applications va WHERE va.mission_id = m.id AND va.status = 'pending') as pending_applications
-       FROM missions m
-       WHERE m.campaign_id = ?
-       ORDER BY m.mission_date ASC, m.created_at ASC`,
-      [campaignId]
-    );
-    return rows;
+  static async getMissions(campaignId, userId = null) {
+    return MissionModel.findByCampaignId(campaignId, userId);
   }
 
   static async create({ title, description, image_url, location, latitude, longitude, start_date, end_date, status, created_by }) {

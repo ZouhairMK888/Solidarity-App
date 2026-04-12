@@ -48,17 +48,25 @@ export const authAPI = {
 export const campaignAPI = {
   getAll: (params) => api.get('/campaigns', { params }),
   getById: (id) => api.get(`/campaigns/${id}`),
+  getMissions: (id) => api.get(`/campaigns/${id}/missions`),
   create: (data) => api.post('/campaigns', data),
   update: (id, data) => api.put(`/campaigns/${id}`, data),
   remove: (id) => api.delete(`/campaigns/${id}`),
   getManageable: () => api.get('/campaigns/manage'),
   updateStatus: (id, data) => api.patch(`/campaigns/${id}/status`, data),
+  createMission: (campaignId, data) => api.post(`/campaigns/${campaignId}/missions`, data),
+  updateMission: (campaignId, missionId, data) => api.put(`/campaigns/${campaignId}/missions/${missionId}`, data),
+  updateMissionStatus: (campaignId, missionId, data) => api.patch(`/campaigns/${campaignId}/missions/${missionId}/status`, data),
+  removeMission: (campaignId, missionId) => api.delete(`/campaigns/${campaignId}/missions/${missionId}`),
+  applyToMission: (campaignId, missionId, data = {}) => api.post(`/campaigns/${campaignId}/missions/${missionId}/apply`, data),
 };
 
 export const adminAPI = {
   getOverview: () => api.get('/admin/overview'),
   getUsers: (params) => api.get('/admin/users', { params }),
+  getMissionApplications: (params) => api.get('/admin/mission-applications', { params }),
   createOrganizer: (data) => api.post('/admin/organizers', data),
+  reviewMissionApplication: (id, data) => api.patch(`/admin/mission-applications/${id}/status`, data),
   updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
   updateUserStatus: (id, data) => api.patch(`/admin/users/${id}/status`, data),

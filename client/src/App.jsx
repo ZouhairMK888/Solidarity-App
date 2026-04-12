@@ -30,7 +30,7 @@ const App = () => {
 
       {/* Example protected route (dashboard - placeholder) */}
       <Route
-        path="/dashboard"
+        path="/dashboard/*"
         element={
           <ProtectedRoute roles={['admin', 'organizer']}>
             <DashboardPage />
