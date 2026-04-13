@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
@@ -7,6 +8,7 @@ import Button from '../../components/ui/Button';
 import { SkeletonDetailPage } from '../../components/ui/Skeleton';
 import { useCampaign } from '../../hooks';
 import { useAuth } from '../../context/AuthContext';
+import { campaignAPI } from '../../services/api';
 import { formatDateRange, formatDate, getAssetUrl, getGoogleMapsUrl, missionStatusConfig } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -37,9 +39,18 @@ const InfoRow = ({ icon, label, value }) => (
   ) : null
 );
 
-const MissionCard = ({ mission, onParticipate }) => {
+const applicationLabelMap = {
+  pending: 'Application pending',
+  accepted: 'Application accepted',
+  rejected: 'Application reviewed',
+  cancelled: 'Application cancelled',
+};
+
+const MissionCard = ({ mission, onParticipate, isAuthenticated, viewerRole, applying }) => {
   const config = missionStatusConfig[mission.status] || missionStatusConfig.open;
   const spotsLeft = mission.required_volunteers - (mission.assigned_count || 0);
+  const hasApplied = !!mission.application_status;
+  const applicationLabel = applicationLabelMap[mission.application_status];
 
   return (
     <div className="card p-5 hover:shadow-card-hover transition-all duration-200">
@@ -96,9 +107,19 @@ const MissionCard = ({ mission, onParticipate }) => {
         </div>
       )}
 
-      {mission.status === 'open' && spotsLeft > 0 && (
-        <Button variant="primary" size="sm" className="w-full" onClick={() => onParticipate(mission)}>
-          Apply to participate
+      {mission.status === 'open' && spotsLeft > 0 && hasApplied && (
+        <Button variant="secondary" size="sm" className="w-full" disabled>
+          {applicationLabel || 'Application sent'}
+        </Button>
+      )}
+      {mission.status === 'open' && spotsLeft > 0 && !hasApplied && isAuthenticated && viewerRole !== 'volunteer' && (
+        <p className="text-center text-xs text-amber-600 font-medium py-1">
+          Only volunteer accounts can apply
+        </p>
+      )}
+      {mission.status === 'open' && spotsLeft > 0 && !hasApplied && (!isAuthenticated || viewerRole === 'volunteer') && (
+        <Button variant="primary" size="sm" className="w-full" onClick={() => onParticipate(mission)} loading={applying}>
+          {applying ? 'Submitting application...' : 'Apply to participate'}
         </Button>
       )}
       {(mission.status !== 'open' || spotsLeft <= 0) && (
@@ -113,19 +134,35 @@ const MissionCard = ({ mission, onParticipate }) => {
 const CampaignDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-  const { campaign, missions, loading, error } = useCampaign(id);
+  const { isAuthenticated, user } = useAuth();
+  const { campaign, missions, loading, error, refetch } = useCampaign(id);
+  const [applyingMissionId, setApplyingMissionId] = useState(null);
   const mapsUrl = campaign ? getGoogleMapsUrl(campaign.location, campaign.latitude, campaign.longitude) : null;
   const hasCoordinates = campaign && Number.isFinite(Number(campaign.latitude)) && Number.isFinite(Number(campaign.longitude));
   const mapPosition = hasCoordinates ? [Number(campaign.latitude), Number(campaign.longitude)] : null;
 
-  const handleParticipate = (mission) => {
+  const handleParticipate = async (mission) => {
     if (!isAuthenticated) {
       toast.error('Please sign in to apply for a mission.');
       navigate('/login', { state: { from: { pathname: `/campaigns/${id}` } } });
       return;
     }
-    toast.success(`Application submitted for "${mission.title}"! (Demo)`);
+
+    if (user?.role !== 'volunteer') {
+      toast.error('Only volunteer accounts can apply to missions.');
+      return;
+    }
+
+    setApplyingMissionId(mission.id);
+    try {
+      const response = await campaignAPI.applyToMission(id, mission.id);
+      toast.success(response.data.message || `Application submitted for "${mission.title}".`);
+      await refetch();
+    } catch (applyError) {
+      toast.error(applyError.response?.data?.message || 'Could not submit your application.');
+    } finally {
+      setApplyingMissionId(null);
+    }
   };
 
   if (error) {
@@ -291,6 +328,14 @@ const CampaignDetailPage = () => {
                     Sign in to participate
                   </div>
                 )}
+                {isAuthenticated && user?.role !== 'volunteer' && missions.some((m) => m.status === 'open') && (
+                  <div className="hidden sm:flex items-center gap-2 bg-slate-100 border border-slate-200 text-slate-600 text-xs font-semibold px-3 py-2 rounded-xl">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A9 9 0 1118.88 6.197M15 11a3 3 0 11-6 0 3 3 0 016 0zm7 10l-4.35-4.35" />
+                    </svg>
+                    Volunteer accounts can apply
+                  </div>
+                )}
               </div>
 
               {missions.length === 0 ? (
@@ -305,7 +350,14 @@ const CampaignDetailPage = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {missions.map((mission) => (
-                    <MissionCard key={mission.id} mission={mission} onParticipate={handleParticipate} />
+                    <MissionCard
+                      key={mission.id}
+                      mission={mission}
+                      onParticipate={handleParticipate}
+                      isAuthenticated={isAuthenticated}
+                      viewerRole={user?.role}
+                      applying={applyingMissionId === mission.id}
+                    />
                   ))}
                 </div>
               )}

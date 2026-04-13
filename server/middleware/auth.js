@@ -1,6 +1,29 @@
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 
+const getUserFromToken = async (token) => {
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+  const [rows] = await pool.query(
+    'SELECT id, name, email, role, is_active FROM users WHERE id = ?',
+    [decoded.id]
+  );
+
+  if (rows.length === 0) {
+    const error = new Error('User not found.');
+    error.status = 401;
+    throw error;
+  }
+
+  if (!rows[0].is_active) {
+    const error = new Error('Your account has been deactivated.');
+    error.status = 403;
+    throw error;
+  }
+
+  return rows[0];
+};
+
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -13,30 +36,12 @@ const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const [rows] = await pool.query(
-      'SELECT id, name, email, role, is_active FROM users WHERE id = ?',
-      [decoded.id]
-    );
-
-    if (rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found.',
-      });
-    }
-
-    if (!rows[0].is_active) {
-      return res.status(403).json({
-        success: false,
-        message: 'Your account has been deactivated.',
-      });
-    }
-
-    req.user = rows[0];
+    req.user = await getUserFromToken(token);
     next();
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ success: false, message: 'Token expired.' });
     }
@@ -59,4 +64,20 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { authenticate, authorize };
+const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+    req.user = await getUserFromToken(token);
+    return next();
+  } catch {
+    return next();
+  }
+};
+
+module.exports = { authenticate, optionalAuthenticate, authorize };

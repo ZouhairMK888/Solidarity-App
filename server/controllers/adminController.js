@@ -1,14 +1,16 @@
 const UserModel = require('../models/User');
 const CampaignModel = require('../models/Campaign');
+const VolunteerApplicationModel = require('../models/VolunteerApplication');
 
 const allowedRoles = ['organizer', 'volunteer'];
 const editableRoles = ['admin', 'organizer', 'volunteer'];
 
 const getOverview = async (req, res, next) => {
   try {
-    const [userStats, campaignStats, users, campaigns] = await Promise.all([
+    const [userStats, campaignStats, applicationStats, users, campaigns] = await Promise.all([
       UserModel.getStats(),
       CampaignModel.getStats(),
+      VolunteerApplicationModel.getStats(),
       UserModel.findAll(),
       CampaignModel.findManageable({ user: req.user }),
     ]);
@@ -19,6 +21,7 @@ const getOverview = async (req, res, next) => {
         stats: {
           users: userStats,
           campaigns: campaignStats,
+          applications: applicationStats,
         },
         recentUsers: users.slice(0, 5),
         recentCampaigns: campaigns.slice(0, 5),

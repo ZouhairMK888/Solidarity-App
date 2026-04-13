@@ -53,22 +53,27 @@ export const useCampaign = (id) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const fetchCampaign = useCallback(async () => {
     if (!id) return;
+
     setLoading(true);
     setError(null);
-    campaignAPI.getById(id)
-      .then(({ data }) => {
-        setCampaign(data.data.campaign);
-        setMissions(data.data.missions);
-      })
-      .catch((err) => {
-        setError(err.response?.data?.message || 'Failed to load campaign.');
-      })
-      .finally(() => setLoading(false));
+    try {
+      const { data } = await campaignAPI.getById(id);
+      setCampaign(data.data.campaign);
+      setMissions(data.data.missions);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load campaign.');
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
-  return { campaign, missions, loading, error };
+  useEffect(() => {
+    fetchCampaign();
+  }, [fetchCampaign]);
+
+  return { campaign, missions, loading, error, refetch: fetchCampaign };
 };
 
 // ─── useForm ──────────────────────────────────────────────────────────────────

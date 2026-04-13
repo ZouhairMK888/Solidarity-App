@@ -9,13 +9,19 @@ const {
   updateUser,
   deleteUser,
 } = require('../controllers/adminController');
+const {
+  getMissionApplications,
+  reviewMissionApplication,
+} = require('../controllers/adminApplicationController');
 const { authenticate, authorize } = require('../middleware/auth');
 
 router.use(authenticate, authorize('admin'));
 
 router.get('/overview', getOverview);
 router.get('/users', getUsers);
+router.get('/mission-applications', getMissionApplications);
 router.post('/organizers', createOrganizer);
+router.patch('/mission-applications/:id/status', reviewMissionApplication);
 router.put('/users/:id', updateUser);
 router.patch('/users/:id/status', updateUserStatus);
 router.patch('/users/:id/role', updateUserRole);
