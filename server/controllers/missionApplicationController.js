@@ -1,6 +1,23 @@
 const CampaignModel = require('../models/Campaign');
 const MissionModel = require('../models/Mission');
 const VolunteerApplicationModel = require('../models/VolunteerApplication');
+const { notifyActiveAdmins, notifyUsers } = require('../services/notificationService');
+
+const notifyUsersSafely = async (payload) => {
+  try {
+    await notifyUsers(payload);
+  } catch (error) {
+    console.error('Failed to send targeted notifications:', error.message);
+  }
+};
+
+const notifyAdminsSafely = async (payload) => {
+  try {
+    await notifyActiveAdmins(payload);
+  } catch (error) {
+    console.error('Failed to send admin notifications:', error.message);
+  }
+};
 
 const applyToMission = async (req, res, next) => {
   try {
@@ -57,6 +74,20 @@ const applyToMission = async (req, res, next) => {
       missionId,
       motivation,
     });
+
+    await Promise.all([
+      notifyAdminsSafely({
+        title: 'New mission application',
+        message: `${req.user.name} applied to the mission "${mission.title}" in "${campaign.title}".`,
+        type: 'application_submitted',
+      }),
+      notifyUsersSafely({
+        title: 'New mission application',
+        message: `${req.user.name} applied to the mission "${mission.title}" in "${campaign.title}".`,
+        type: 'application_submitted',
+        userIds: [campaign.created_by],
+      }),
+    ]);
 
     const updatedMission = await MissionModel.findById(missionId, req.user.id);
 

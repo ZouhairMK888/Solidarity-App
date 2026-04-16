@@ -1,7 +1,24 @@
 const CampaignModel = require('../models/Campaign');
 const MissionModel = require('../models/Mission');
+const { notifyActiveAdmins, notifyActiveVolunteers } = require('../services/notificationService');
 
 const allowedMissionStatuses = ['open', 'in_progress', 'completed', 'cancelled'];
+
+const notifyVolunteersSafely = async (payload) => {
+  try {
+    await notifyActiveVolunteers(payload);
+  } catch (error) {
+    console.error('Failed to send volunteer notifications:', error.message);
+  }
+};
+
+const notifyAdminsSafely = async (payload) => {
+  try {
+    await notifyActiveAdmins(payload);
+  } catch (error) {
+    console.error('Failed to send admin notifications:', error.message);
+  }
+};
 
 const ensureCampaignAccess = (campaign, user) => {
   if (!campaign) {
@@ -99,6 +116,17 @@ const createMission = async (req, res, next) => {
 
     const mission = await MissionModel.findById(missionId);
 
+    await notifyVolunteersSafely({
+      title: 'New mission published',
+      message: `${req.user.name} added the mission "${mission.title}" in "${campaign.title}".`,
+      type: 'mission_created',
+    });
+    await notifyAdminsSafely({
+      title: 'Mission created',
+      message: `${req.user.name} added the mission "${mission.title}" in "${campaign.title}".`,
+      type: 'mission_created',
+    });
+
     res.status(201).json({
       success: true,
       message: 'Mission created successfully.',
@@ -163,6 +191,17 @@ const updateMission = async (req, res, next) => {
       status,
     });
 
+    await notifyVolunteersSafely({
+      title: 'Mission updated',
+      message: `${req.user.name} updated the mission "${mission.title}" in "${campaign.title}".`,
+      type: 'mission_updated',
+    });
+    await notifyAdminsSafely({
+      title: 'Mission updated',
+      message: `${req.user.name} updated the mission "${mission.title}" in "${campaign.title}".`,
+      type: 'mission_updated',
+    });
+
     res.status(200).json({
       success: true,
       message: 'Mission updated successfully.',
@@ -204,6 +243,17 @@ const updateMissionStatus = async (req, res, next) => {
     }
 
     const mission = await MissionModel.updateStatus(missionId, status);
+
+    await notifyVolunteersSafely({
+      title: 'Mission status changed',
+      message: `${req.user.name} changed the mission "${mission.title}" to ${status}.`,
+      type: 'mission_status',
+    });
+    await notifyAdminsSafely({
+      title: 'Mission status changed',
+      message: `${req.user.name} changed the mission "${mission.title}" to ${status}.`,
+      type: 'mission_status',
+    });
 
     res.status(200).json({
       success: true,

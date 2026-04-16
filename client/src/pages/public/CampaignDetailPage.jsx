@@ -137,11 +137,14 @@ const CampaignDetailPage = () => {
   const { isAuthenticated, user } = useAuth();
   const { campaign, missions, loading, error, refetch } = useCampaign(id);
   const [applyingMissionId, setApplyingMissionId] = useState(null);
+  const [selectedMission, setSelectedMission] = useState(null);
+  const [motivation, setMotivation] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const mapsUrl = campaign ? getGoogleMapsUrl(campaign.location, campaign.latitude, campaign.longitude) : null;
   const hasCoordinates = campaign && Number.isFinite(Number(campaign.latitude)) && Number.isFinite(Number(campaign.longitude));
   const mapPosition = hasCoordinates ? [Number(campaign.latitude), Number(campaign.longitude)] : null;
 
-  const handleParticipate = async (mission) => {
+  const handleOpenMotivationModal = (mission) => {
     if (!isAuthenticated) {
       toast.error('Please sign in to apply for a mission.');
       navigate('/login', { state: { from: { pathname: `/campaigns/${id}` } } });
@@ -153,16 +156,37 @@ const CampaignDetailPage = () => {
       return;
     }
 
-    setApplyingMissionId(mission.id);
+    setSelectedMission(mission);
+    setMotivation('');
+  };
+
+  const handleCloseModal = () => {
+    setSelectedMission(null);
+    setMotivation('');
+    setIsSubmitting(false);
+  };
+
+  const handleSubmitApplication = async () => {
+    if (!motivation.trim()) {
+      toast.error('Please write a motivation before applying.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const response = await campaignAPI.applyToMission(id, mission.id);
-      toast.success(response.data.message || `Application submitted for "${mission.title}".`);
+      const response = await campaignAPI.applyToMission(id, selectedMission.id, { motivation });
+      toast.success(response.data.message || `Application submitted for "${selectedMission.title}".`);
+      handleCloseModal();
       await refetch();
     } catch (applyError) {
       toast.error(applyError.response?.data?.message || 'Could not submit your application.');
     } finally {
-      setApplyingMissionId(null);
+      setIsSubmitting(false);
     }
+  };
+
+  const handleParticipate = (mission) => {
+    handleOpenMotivationModal(mission);
   };
 
   if (error) {
@@ -365,6 +389,79 @@ const CampaignDetailPage = () => {
           </div>
         ) : null}
       </div>
+
+      {/* Motivation Modal */}
+      {selectedMission && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-fade-in">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-100 p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Apply to Mission</h2>
+                  <p className="text-sm text-slate-500 mt-1">{selectedMission.title}</p>
+                </div>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                  disabled={isSubmitting}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label htmlFor="motivation" className="block text-sm font-semibold text-slate-900 mb-2">
+                  Your Motivation <span className="text-red-500">*</span>
+                </label>
+                <p className="text-xs text-slate-500 mb-3">
+                  Tell the organizer why you want to participate in this mission.
+                </p>
+                <textarea
+                  id="motivation"
+                  value={motivation}
+                  onChange={(e) => setMotivation(e.target.value)}
+                  placeholder="Share your motivation and why you're interested in this mission..."
+                  className="w-full px-4 py-3 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                  rows="5"
+                  disabled={isSubmitting}
+                />
+                <p className="text-xs text-slate-400 mt-2">
+                  {motivation.length} characters
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white border-t border-slate-100 p-6 flex gap-3">
+              <button
+                onClick={handleCloseModal}
+                className="flex-1 px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitApplication}
+                className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={isSubmitting || !motivation.trim()}
+              >
+                {isSubmitting && (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                )}
+                {isSubmitting ? 'Submitting...' : 'Submit Application'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };

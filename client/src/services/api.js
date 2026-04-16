@@ -73,4 +73,10 @@ export const adminAPI = {
   updateUserRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
 };
 
+export const notificationAPI = {
+  getMine: (params) => api.get('/notifications', { params }),
+  markAsRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.patch('/notifications/read-all'),
+};
+
 export default api;
