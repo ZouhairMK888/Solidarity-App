@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button';
 
@@ -83,6 +84,140 @@ const UserMenu = ({ user, onLogout }) => {
   );
 };
 
+const formatNotificationTime = (value) => {
+  if (!value) return '';
+
+  const createdAt = new Date(value);
+  const seconds = Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / 1000));
+
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`;
+  return createdAt.toLocaleDateString();
+};
+
+const resolveNotificationPath = ({ notification, role }) => {
+  switch (notification.type) {
+    case 'campaign_created':
+    case 'campaign_updated':
+    case 'campaign_status':
+    case 'mission_created':
+    case 'mission_updated':
+    case 'mission_status':
+    case 'application_accepted':
+      return '/';
+    case 'application_submitted':
+      return '/dashboard/control';
+    case 'organizer_created':
+      return role === 'admin' ? '/dashboard/organizers' : '/dashboard/overview';
+    default:
+      return role === 'admin' || role === 'organizer' ? '/dashboard/overview' : '/';
+  }
+};
+
+const NotificationBell = () => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification.is_read) {
+      await markAsRead(notification.id);
+    }
+
+    setOpen(false);
+    navigate(resolveNotificationPath({ notification, role: user?.role }));
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="relative rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+        aria-label="Open notifications"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17H9.143m9.714 0H19a2 2 0 001-3.732l-.555-.278A2 2 0 0118.333 11.2V9a6.333 6.333 0 10-12.666 0v2.2a2 2 0 01-1.112 1.79L4 13.268A2 2 0 005 17h.143m9.714 0a3 3 0 11-5.714 0" />
+        </svg>
+        {unreadCount > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-[11px] font-bold text-white">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-3 w-[22rem] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 animate-fade-in">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Notifications</p>
+              <p className="text-xs text-slate-500">Important updates for volunteers</p>
+            </div>
+            <button
+              type="button"
+              onClick={markAllAsRead}
+              disabled={!notifications.length || unreadCount === 0}
+              className="text-xs font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:text-slate-300"
+            >
+              Mark all read
+            </button>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
+            {loading ? (
+              <div className="px-5 py-6 text-sm text-slate-500">Loading notifications...</div>
+            ) : notifications.length ? notifications.map((notification) => (
+              <button
+                key={notification.id}
+                type="button"
+                onClick={() => handleNotificationClick(notification)}
+                className={`w-full border-b border-slate-100 px-5 py-4 text-left transition-colors last:border-b-0 ${
+                  notification.is_read ? 'bg-white' : 'bg-emerald-50/60 hover:bg-emerald-50'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <span className={`mt-1 h-2.5 w-2.5 rounded-full ${notification.is_read ? 'bg-slate-300' : 'bg-emerald-500'}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-semibold text-slate-900">{notification.title || 'Notification'}</p>
+                      <span className="shrink-0 text-[11px] text-slate-400">{formatNotificationTime(notification.created_at)}</span>
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600">{notification.message}</p>
+                  </div>
+                </div>
+              </button>
+            )) : (
+              <div className="px-5 py-8 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h11zm0 0a3 3 0 11-6 0h6z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-slate-700">No notifications yet</p>
+                <p className="mt-1 text-xs text-slate-500">New missions and updates from admins or organizers will appear here.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
@@ -132,7 +267,10 @@ const Navbar = () => {
           {/* Auth area */}
           <div className="hidden sm:flex items-center gap-3">
             {isAuthenticated ? (
-              <UserMenu user={user} onLogout={handleLogout} />
+              <>
+                <NotificationBell />
+                <UserMenu user={user} onLogout={handleLogout} />
+              </>
             ) : (
               <>
                 <Button variant="ghost" onClick={() => navigate('/login')}>Sign in</Button>
@@ -177,6 +315,9 @@ const Navbar = () => {
                 <>
                   <div className="px-4 py-2 text-sm text-slate-600">
                     Signed in as <strong className="text-slate-800">{user?.name}</strong>
+                  </div>
+                  <div className="px-4 py-2">
+                    <NotificationBell />
                   </div>
                   {(user?.role === 'admin' || user?.role === 'organizer') && (
                     <button

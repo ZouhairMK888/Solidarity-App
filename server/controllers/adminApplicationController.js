@@ -3,8 +3,17 @@ const CampaignModel = require('../models/Campaign');
 const MissionModel = require('../models/Mission');
 const TaskAssignmentModel = require('../models/TaskAssignment');
 const VolunteerApplicationModel = require('../models/VolunteerApplication');
+const { notifyUsers } = require('../services/notificationService');
 
 const reviewableStatuses = ['accepted', 'rejected'];
+
+const notifyUsersSafely = async (payload) => {
+  try {
+    await notifyUsers(payload);
+  } catch (error) {
+    console.error('Failed to send targeted notifications:', error.message);
+  }
+};
 
 const getMissionApplications = async (req, res, next) => {
   try {
@@ -115,6 +124,15 @@ const reviewMissionApplication = async (req, res, next) => {
     }
 
     await connection.commit();
+
+    if (status === 'accepted') {
+      await notifyUsersSafely({
+        title: 'Application accepted',
+        message: `Your request for the mission "${mission.title}" in "${campaign.title}" has been accepted.`,
+        type: 'application_accepted',
+        userIds: [application.user_id],
+      });
+    }
 
     res.status(200).json({
       success: true,

@@ -1,9 +1,18 @@
 const UserModel = require('../models/User');
 const CampaignModel = require('../models/Campaign');
 const VolunteerApplicationModel = require('../models/VolunteerApplication');
+const { notifyActiveAdmins } = require('../services/notificationService');
 
 const allowedRoles = ['organizer', 'volunteer'];
 const editableRoles = ['admin', 'organizer', 'volunteer'];
+
+const notifyAdminsSafely = async (payload) => {
+  try {
+    await notifyActiveAdmins(payload);
+  } catch (error) {
+    console.error('Failed to send admin notifications:', error.message);
+  }
+};
 
 const getOverview = async (req, res, next) => {
   try {
@@ -88,6 +97,12 @@ const createOrganizer = async (req, res, next) => {
     });
 
     const organizer = await UserModel.findById(userId);
+
+    await notifyAdminsSafely({
+      title: 'New organizer added',
+      message: `${req.user.name} added ${organizer.name} as a new organizer.`,
+      type: 'organizer_created',
+    });
 
     res.status(201).json({
       success: true,

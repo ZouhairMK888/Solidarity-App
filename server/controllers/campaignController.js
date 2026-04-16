@@ -1,6 +1,23 @@
 const fs = require('fs');
 const path = require('path');
 const CampaignModel = require('../models/Campaign');
+const { notifyActiveAdmins, notifyActiveVolunteers } = require('../services/notificationService');
+
+const notifyVolunteersSafely = async (payload) => {
+  try {
+    await notifyActiveVolunteers(payload);
+  } catch (error) {
+    console.error('Failed to send volunteer notifications:', error.message);
+  }
+};
+
+const notifyAdminsSafely = async (payload) => {
+  try {
+    await notifyActiveAdmins(payload);
+  } catch (error) {
+    console.error('Failed to send admin notifications:', error.message);
+  }
+};
 
 const deleteUploadedFile = (filePath) => {
   if (!filePath || !filePath.startsWith('/uploads/')) return;
@@ -85,6 +102,17 @@ const createCampaign = async (req, res, next) => {
 
     const campaign = await CampaignModel.findById(campaignId);
 
+    await notifyVolunteersSafely({
+      title: 'New campaign available',
+      message: `${req.user.name} created the campaign "${campaign.title}".`,
+      type: 'campaign_created',
+    });
+    await notifyAdminsSafely({
+      title: 'Campaign created',
+      message: `${req.user.name} created the campaign "${campaign.title}".`,
+      type: 'campaign_created',
+    });
+
     res.status(201).json({
       success: true,
       message: 'Campaign created successfully.',
@@ -131,6 +159,17 @@ const updateCampaignStatus = async (req, res, next) => {
     }
 
     const updatedCampaign = await CampaignModel.updateStatus(id, status);
+
+    await notifyVolunteersSafely({
+      title: 'Campaign status changed',
+      message: `${req.user.name} changed "${updatedCampaign.title}" to ${status}.`,
+      type: 'campaign_status',
+    });
+    await notifyAdminsSafely({
+      title: 'Campaign status changed',
+      message: `${req.user.name} changed "${updatedCampaign.title}" to ${status}.`,
+      type: 'campaign_status',
+    });
 
     res.status(200).json({
       success: true,
@@ -185,6 +224,17 @@ const updateCampaign = async (req, res, next) => {
     if (req.file && existingCampaign.image_url && existingCampaign.image_url !== image_url) {
       deleteUploadedFile(existingCampaign.image_url);
     }
+
+    await notifyVolunteersSafely({
+      title: 'Campaign updated',
+      message: `${req.user.name} updated the campaign "${updatedCampaign.title}".`,
+      type: 'campaign_updated',
+    });
+    await notifyAdminsSafely({
+      title: 'Campaign updated',
+      message: `${req.user.name} updated the campaign "${updatedCampaign.title}".`,
+      type: 'campaign_updated',
+    });
 
     res.status(200).json({
       success: true,
