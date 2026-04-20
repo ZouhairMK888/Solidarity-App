@@ -1,6 +1,7 @@
 const CampaignModel = require('../models/Campaign');
 const MissionModel = require('../models/Mission');
 const VolunteerApplicationModel = require('../models/VolunteerApplication');
+const UserModel = require('../models/User');
 const { notifyActiveAdmins, notifyUsers } = require('../services/notificationService');
 
 const notifyUsersSafely = async (payload) => {
@@ -81,12 +82,20 @@ const applyToMission = async (req, res, next) => {
         message: `${req.user.name} applied to the mission "${mission.title}" in "${campaign.title}".`,
         type: 'application_submitted',
       }),
-      notifyUsersSafely({
-        title: 'New mission application',
-        message: `${req.user.name} applied to the mission "${mission.title}" in "${campaign.title}".`,
-        type: 'application_submitted',
-        userIds: [campaign.created_by],
-      }),
+      (async () => {
+        const campaignOwner = await UserModel.findById(campaign.created_by);
+
+        if (!campaignOwner || campaignOwner.role === 'admin') {
+          return 0;
+        }
+
+        return notifyUsersSafely({
+          title: 'New mission application',
+          message: `${req.user.name} applied to the mission "${mission.title}" in "${campaign.title}".`,
+          type: 'application_submitted',
+          userIds: [campaign.created_by],
+        });
+      })(),
     ]);
 
     const updatedMission = await MissionModel.findById(missionId, req.user.id);

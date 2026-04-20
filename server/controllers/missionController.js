@@ -20,6 +20,22 @@ const notifyAdminsSafely = async (payload) => {
   }
 };
 
+const buildVolunteerMissionMessage = (action, missionTitle, campaignTitle, status = null) => {
+  if (action === 'created') {
+    return `A new mission "${missionTitle}" has been added in "${campaignTitle}".`;
+  }
+
+  if (action === 'updated') {
+    return `The mission "${missionTitle}" in "${campaignTitle}" has been updated.`;
+  }
+
+  if (action === 'status' && status) {
+    return `The mission "${missionTitle}" in "${campaignTitle}" has been changed to ${status}.`;
+  }
+
+  return `The mission "${missionTitle}" in "${campaignTitle}" has been updated.`;
+};
+
 const ensureCampaignAccess = (campaign, user) => {
   if (!campaign) {
     return { status: 404, message: 'Campaign not found.' };
@@ -118,7 +134,7 @@ const createMission = async (req, res, next) => {
 
     await notifyVolunteersSafely({
       title: 'New mission published',
-      message: `${req.user.name} added the mission "${mission.title}" in "${campaign.title}".`,
+      message: buildVolunteerMissionMessage('created', mission.title, campaign.title),
       type: 'mission_created',
     });
     await notifyAdminsSafely({
@@ -193,7 +209,7 @@ const updateMission = async (req, res, next) => {
 
     await notifyVolunteersSafely({
       title: 'Mission updated',
-      message: `${req.user.name} updated the mission "${mission.title}" in "${campaign.title}".`,
+      message: buildVolunteerMissionMessage('updated', mission.title, campaign.title),
       type: 'mission_updated',
     });
     await notifyAdminsSafely({
@@ -246,7 +262,7 @@ const updateMissionStatus = async (req, res, next) => {
 
     await notifyVolunteersSafely({
       title: 'Mission status changed',
-      message: `${req.user.name} changed the mission "${mission.title}" to ${status}.`,
+      message: buildVolunteerMissionMessage('status', mission.title, campaign.title, status),
       type: 'mission_status',
     });
     await notifyAdminsSafely({

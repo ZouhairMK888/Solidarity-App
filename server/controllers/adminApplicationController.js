@@ -125,14 +125,14 @@ const reviewMissionApplication = async (req, res, next) => {
 
     await connection.commit();
 
-    if (status === 'accepted') {
-      await notifyUsersSafely({
-        title: 'Application accepted',
-        message: `Your request for the mission "${mission.title}" in "${campaign.title}" has been accepted.`,
-        type: 'application_accepted',
-        userIds: [application.user_id],
-      });
-    }
+    await notifyUsersSafely({
+      title: status === 'accepted' ? 'Application accepted' : 'Application rejected',
+      message: status === 'accepted'
+        ? `Your request for the mission "${mission.title}" in "${campaign.title}" has been accepted.`
+        : `Your request for the mission "${mission.title}" in "${campaign.title}" has been rejected.`,
+      type: status === 'accepted' ? 'application_accepted' : 'application_rejected',
+      userIds: [application.user_id],
+    });
 
     res.status(200).json({
       success: true,

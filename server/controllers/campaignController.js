@@ -19,6 +19,22 @@ const notifyAdminsSafely = async (payload) => {
   }
 };
 
+const buildVolunteerCampaignMessage = (action, campaignTitle, status = null) => {
+  if (action === 'created') {
+    return `A new campaign "${campaignTitle}" has been added.`;
+  }
+
+  if (action === 'updated') {
+    return `The campaign "${campaignTitle}" has been updated.`;
+  }
+
+  if (action === 'status' && status) {
+    return `The status of "${campaignTitle}" has been changed to ${status}.`;
+  }
+
+  return `The campaign "${campaignTitle}" has been updated.`;
+};
+
 const deleteUploadedFile = (filePath) => {
   if (!filePath || !filePath.startsWith('/uploads/')) return;
   const relativeUploadPath = filePath.replace(/^\//, '');
@@ -104,7 +120,7 @@ const createCampaign = async (req, res, next) => {
 
     await notifyVolunteersSafely({
       title: 'New campaign available',
-      message: `${req.user.name} created the campaign "${campaign.title}".`,
+      message: buildVolunteerCampaignMessage('created', campaign.title),
       type: 'campaign_created',
     });
     await notifyAdminsSafely({
@@ -162,7 +178,7 @@ const updateCampaignStatus = async (req, res, next) => {
 
     await notifyVolunteersSafely({
       title: 'Campaign status changed',
-      message: `${req.user.name} changed "${updatedCampaign.title}" to ${status}.`,
+      message: buildVolunteerCampaignMessage('status', updatedCampaign.title, status),
       type: 'campaign_status',
     });
     await notifyAdminsSafely({
@@ -227,7 +243,7 @@ const updateCampaign = async (req, res, next) => {
 
     await notifyVolunteersSafely({
       title: 'Campaign updated',
-      message: `${req.user.name} updated the campaign "${updatedCampaign.title}".`,
+      message: buildVolunteerCampaignMessage('updated', updatedCampaign.title),
       type: 'campaign_updated',
     });
     await notifyAdminsSafely({

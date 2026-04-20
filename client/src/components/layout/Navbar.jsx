@@ -105,6 +105,7 @@ const resolveNotificationPath = ({ notification, role }) => {
     case 'mission_updated':
     case 'mission_status':
     case 'application_accepted':
+    case 'application_rejected':
       return '/';
     case 'application_submitted':
       return '/dashboard/control';
