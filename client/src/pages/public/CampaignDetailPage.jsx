@@ -9,7 +9,7 @@ import { SkeletonDetailPage } from '../../components/ui/Skeleton';
 import { useCampaign } from '../../hooks';
 import { useAuth } from '../../context/AuthContext';
 import { campaignAPI } from '../../services/api';
-import { formatDateRange, formatDate, getAssetUrl, getGoogleMapsUrl, missionStatusConfig } from '../../utils/helpers';
+import { formatDateRange, formatDate, getAssetUrl, getGoogleMapsUrl, missionStatusConfig, taskStatusConfig } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -51,6 +51,12 @@ const MissionCard = ({ mission, onParticipate, isAuthenticated, viewerRole, appl
   const spotsLeft = mission.required_volunteers - (mission.assigned_count || 0);
   const hasApplied = !!mission.application_status;
   const applicationLabel = applicationLabelMap[mission.application_status];
+  const isAccepted = mission.application_status === 'accepted';
+  const hasAssignedTask = !!mission.assigned_task_title;
+  const missionTasks = mission.tasks || [];
+  const assignedTaskConfig = mission.assigned_task_status
+    ? (taskStatusConfig[mission.assigned_task_status] || taskStatusConfig.todo)
+    : null;
 
   return (
     <div className="card p-5 hover:shadow-card-hover transition-all duration-200">
@@ -65,6 +71,72 @@ const MissionCard = ({ mission, onParticipate, isAuthenticated, viewerRole, appl
       {mission.description && (
         <p className="text-sm text-slate-500 leading-relaxed mb-4">{mission.description}</p>
       )}
+
+      <div className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.85),rgba(240,249,255,0.88))]">
+        <div className="flex items-start justify-between gap-3 border-b border-emerald-100 px-4 py-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Mission tasks</p>
+            <p className="mt-1 text-sm text-slate-600">
+              {missionTasks.length
+                ? 'Review the detailed tasks before you apply.'
+                : 'Detailed task slots are not published yet for this mission.'}
+            </p>
+          </div>
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            {missionTasks.length} task{missionTasks.length === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        {missionTasks.length ? (
+          <div>
+            <div className="hidden bg-white/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:grid sm:grid-cols-[minmax(0,1.15fr)_auto_auto] sm:gap-3">
+              <span>Task</span>
+              <span>Status</span>
+              <span>Capacity</span>
+            </div>
+            <div className="divide-y divide-emerald-100">
+            {missionTasks.map((task) => {
+              const taskConfig = taskStatusConfig[task.status] || taskStatusConfig.todo;
+              const slotsLeft = Math.max(0, Number(task.required_volunteers || 0) - Number(task.assigned_count || 0));
+
+              return (
+                <div key={task.id} className="px-4 py-3">
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1.15fr)_auto_auto] sm:items-start">
+                    <div>
+                      <p className="font-semibold text-slate-900">{task.title}</p>
+                      {task.description && (
+                        <p className="mt-1 text-xs leading-relaxed text-slate-500">{task.description}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:hidden">Status</p>
+                      <span className={`badge ${taskConfig.className}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+                        {taskConfig.label}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:hidden">Capacity</p>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{task.required_volunteers} needed</span>
+                        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{task.assigned_count || 0} assigned</span>
+                        <span className={`rounded-full px-3 py-1.5 ${slotsLeft > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                          {slotsLeft} slot{slotsLeft === 1 ? '' : 's'} left
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            </div>
+          </div>
+        ) : (
+          <div className="px-4 py-4 text-sm text-slate-500">
+            The admin can still publish the detailed task list later.
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         {mission.mission_date && (
@@ -107,22 +179,66 @@ const MissionCard = ({ mission, onParticipate, isAuthenticated, viewerRole, appl
         </div>
       )}
 
-      {mission.status === 'open' && spotsLeft > 0 && hasApplied && (
+      {(hasAssignedTask || isAccepted) && (
+        <div className={`mb-4 rounded-xl border px-4 py-3 ${
+          hasAssignedTask ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'
+        }`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                hasAssignedTask ? 'text-emerald-700' : 'text-amber-700'
+              }`}>
+                {hasAssignedTask ? 'Your assigned task' : 'Application approved'}
+              </p>
+              <p className={`mt-1 text-sm font-semibold ${
+                hasAssignedTask ? 'text-emerald-900' : 'text-amber-900'
+              }`}>
+                {hasAssignedTask ? mission.assigned_task_title : 'Waiting for detailed task placement'}
+              </p>
+              <p className={`mt-1 text-xs leading-relaxed ${
+                hasAssignedTask ? 'text-emerald-800/80' : 'text-amber-800/80'
+              }`}>
+                {hasAssignedTask
+                  ? 'An admin has assigned you to this task. Check the mission date and location before you go.'
+                  : 'Your request was accepted. You will receive a notification as soon as an admin places you on a task.'}
+              </p>
+            </div>
+            {assignedTaskConfig && (
+              <span className={`badge ${assignedTaskConfig.className} flex-shrink-0`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+                {assignedTaskConfig.label}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {hasAssignedTask && (
+        <Button variant="secondary" size="sm" className="w-full" disabled>
+          Task assigned
+        </Button>
+      )}
+      {!hasAssignedTask && isAccepted && (
+        <Button variant="secondary" size="sm" className="w-full" disabled>
+          Accepted, waiting for task
+        </Button>
+      )}
+      {!hasAssignedTask && !isAccepted && mission.status === 'open' && spotsLeft > 0 && hasApplied && (
         <Button variant="secondary" size="sm" className="w-full" disabled>
           {applicationLabel || 'Application sent'}
         </Button>
       )}
-      {mission.status === 'open' && spotsLeft > 0 && !hasApplied && isAuthenticated && viewerRole !== 'volunteer' && (
+      {!hasAssignedTask && !isAccepted && mission.status === 'open' && spotsLeft > 0 && !hasApplied && isAuthenticated && viewerRole !== 'volunteer' && (
         <p className="text-center text-xs text-amber-600 font-medium py-1">
           Only volunteer accounts can apply
         </p>
       )}
-      {mission.status === 'open' && spotsLeft > 0 && !hasApplied && (!isAuthenticated || viewerRole === 'volunteer') && (
+      {!hasAssignedTask && !isAccepted && mission.status === 'open' && spotsLeft > 0 && !hasApplied && (!isAuthenticated || viewerRole === 'volunteer') && (
         <Button variant="primary" size="sm" className="w-full" onClick={() => onParticipate(mission)} loading={applying}>
           {applying ? 'Submitting application...' : 'Apply to participate'}
         </Button>
       )}
-      {(mission.status !== 'open' || spotsLeft <= 0) && (
+      {!hasAssignedTask && !isAccepted && (mission.status !== 'open' || spotsLeft <= 0) && (
         <p className="text-center text-xs text-slate-400 font-medium py-1">
           {spotsLeft <= 0 ? 'All spots filled' : 'Applications closed'}
         </p>

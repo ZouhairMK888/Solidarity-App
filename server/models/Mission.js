@@ -6,8 +6,32 @@ class MissionModel {
     const applicationStatusSelect = userId !== null && userId !== undefined
       ? `(SELECT va.status FROM volunteer_applications va WHERE va.mission_id = m.id AND va.user_id = ? LIMIT 1) as application_status`
       : 'NULL as application_status';
+    const assignmentStatusSelect = userId !== null && userId !== undefined
+      ? `(SELECT ta.status FROM task_assignments ta WHERE ta.mission_id = m.id AND ta.user_id = ? LIMIT 1) as assignment_status`
+      : 'NULL as assignment_status';
+    const assignedTaskTitleSelect = userId !== null && userId !== undefined
+      ? `(SELECT mt.title
+          FROM task_assignments ta
+          LEFT JOIN mission_tasks mt ON mt.id = ta.task_id
+          WHERE ta.mission_id = m.id AND ta.user_id = ?
+          LIMIT 1) as assigned_task_title`
+      : 'NULL as assigned_task_title';
+    const assignedTaskStatusSelect = userId !== null && userId !== undefined
+      ? `(SELECT mt.status
+          FROM task_assignments ta
+          LEFT JOIN mission_tasks mt ON mt.id = ta.task_id
+          WHERE ta.mission_id = m.id AND ta.user_id = ?
+          LIMIT 1) as assigned_task_status`
+      : 'NULL as assigned_task_status';
+    const assignedRoleSelect = userId !== null && userId !== undefined
+      ? `(SELECT ta.role_in_task FROM task_assignments ta WHERE ta.mission_id = m.id AND ta.user_id = ? LIMIT 1) as assigned_role_in_task`
+      : 'NULL as assigned_role_in_task';
 
     if (userId !== null && userId !== undefined) {
+      queryParams.push(userId);
+      queryParams.push(userId);
+      queryParams.push(userId);
+      queryParams.push(userId);
       queryParams.push(userId);
     }
 
@@ -17,8 +41,13 @@ class MissionModel {
       query: `
       SELECT m.*,
         (SELECT COUNT(*) FROM task_assignments ta WHERE ta.mission_id = m.id AND ta.status != 'cancelled') as assigned_count,
+        (SELECT COUNT(*) FROM mission_tasks mt WHERE mt.mission_id = m.id) as task_count,
         (SELECT COUNT(*) FROM volunteer_applications va WHERE va.mission_id = m.id AND va.status = 'pending') as pending_applications,
-        ${applicationStatusSelect}
+        ${applicationStatusSelect},
+        ${assignmentStatusSelect},
+        ${assignedTaskTitleSelect},
+        ${assignedTaskStatusSelect},
+        ${assignedRoleSelect}
       FROM missions m
       ${whereClause}
     `,

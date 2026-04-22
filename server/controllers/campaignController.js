@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const CampaignModel = require('../models/Campaign');
+const MissionTaskModel = require('../models/MissionTask');
 const { notifyActiveAdmins, notifyActiveVolunteers } = require('../services/notificationService');
 
 const notifyVolunteersSafely = async (payload) => {
@@ -56,6 +57,32 @@ const ensureCampaignAccess = (campaign, user) => {
   return null;
 };
 
+const attachTasksToMissions = async (missions, { excludeCancelled = false } = {}) => {
+  if (!Array.isArray(missions) || missions.length === 0) {
+    return [];
+  }
+
+  const tasks = await MissionTaskModel.findByMissionIds(
+    missions.map((mission) => mission.id),
+    { excludeCancelled }
+  );
+
+  const tasksByMissionId = tasks.reduce((accumulator, task) => {
+    const key = Number(task.mission_id);
+    if (!accumulator[key]) {
+      accumulator[key] = [];
+    }
+
+    accumulator[key].push(task);
+    return accumulator;
+  }, {});
+
+  return missions.map((mission) => ({
+    ...mission,
+    tasks: tasksByMissionId[Number(mission.id)] || [],
+  }));
+};
+
 const getAllCampaigns = async (req, res, next) => {
   try {
     const { status, search, page, limit } = req.query;
@@ -82,7 +109,10 @@ const getCampaignById = async (req, res, next) => {
       });
     }
 
-    const missions = await CampaignModel.getMissions(id, req.user?.id);
+    const missions = await attachTasksToMissions(
+      await CampaignModel.getMissions(id, req.user?.id),
+      { excludeCancelled: true }
+    );
 
     res.status(200).json({
       success: true,

@@ -7,6 +7,7 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 export const campaignStatuses = ['draft', 'active', 'completed', 'cancelled'];
 export const missionStatuses = ['open', 'in_progress', 'completed', 'cancelled'];
+export const taskStatuses = ['todo', 'in_progress', 'completed', 'cancelled'];
 export const roleOptions = ['volunteer', 'organizer'];
 export const defaultCenter = [33.5731, -7.5898];
 
@@ -17,6 +18,13 @@ export const createEmptyMissionForm = () => ({
   location: '',
   mission_date: '',
   status: 'open',
+});
+
+export const createEmptyTaskForm = () => ({
+  title: '',
+  description: '',
+  required_volunteers: '1',
+  status: 'todo',
 });
 
 export const createEmptyCampaignForm = (isAdmin) => ({

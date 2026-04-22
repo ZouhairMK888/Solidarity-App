@@ -7,6 +7,7 @@ import Badge from '../../../components/ui/Badge';
 import { useAuth } from '../../../context/AuthContext';
 import { adminAPI, campaignAPI } from '../../../services/api';
 import { formatDate, getAssetUrl, getGoogleMapsUrl } from '../../../utils/helpers';
+import MissionTaskBoard from '../components/MissionTaskBoard';
 import {
   EmptyPanel,
   SectionTitle,
@@ -114,7 +115,7 @@ const CampaignControlView = () => {
             <div className="space-y-4 text-sm text-slate-200">
               <div className="rounded-3xl bg-white/10 p-4">Use this page when you are reviewing campaign readiness, promoting drafts to active campaigns, or closing completed work.</div>
               <div className="rounded-3xl bg-white/10 p-4">Admins also get the mission request queue here, so approvals stay close to the campaigns they affect.</div>
-              <div className="rounded-3xl bg-white/10 p-4">Accepted volunteer requests automatically create a task assignment for the mission.</div>
+              <div className="rounded-3xl bg-white/10 p-4">Accepted volunteer requests automatically enter the mission pool, ready to be dragged into the right task lane.</div>
             </div>
           </div>
         </Card>
@@ -212,6 +213,14 @@ const CampaignControlView = () => {
           </div>
         )}
       </section>
+
+      {isAdmin && (
+        loadingCampaigns ? (
+          <Card className="px-6 py-5 text-sm text-slate-500">Loading task board options...</Card>
+        ) : (
+          <MissionTaskBoard campaigns={campaigns} />
+        )
+      )}
 
       {isAdmin && (
         <section>

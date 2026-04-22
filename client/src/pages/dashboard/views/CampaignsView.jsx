@@ -8,6 +8,7 @@ import Badge from '../../../components/ui/Badge';
 import { useAuth } from '../../../context/AuthContext';
 import { campaignAPI } from '../../../services/api';
 import { formatDate, getAssetUrl, getGoogleMapsUrl, missionStatusConfig } from '../../../utils/helpers';
+import MissionTasksManager from '../components/MissionTasksManager';
 import {
   CampaignIcon,
   EmptyPanel,
@@ -34,6 +35,7 @@ const CampaignsView = () => {
   const [missionsByCampaign, setMissionsByCampaign] = useState({});
   const [missionForm, setMissionForm] = useState(createEmptyMissionForm());
   const [editingMissionId, setEditingMissionId] = useState(null);
+  const [taskPanelMissionId, setTaskPanelMissionId] = useState(null);
   const [submittingMission, setSubmittingMission] = useState(false);
   const [loadingMissionsCampaignId, setLoadingMissionsCampaignId] = useState(null);
   const [busyMissionId, setBusyMissionId] = useState(null);
@@ -163,6 +165,7 @@ const CampaignsView = () => {
       if (editingCampaignId === campaign.id) resetCampaignEditor();
       if (missionPanelCampaignId === campaign.id) {
         setMissionPanelCampaignId(null);
+        setTaskPanelMissionId(null);
         resetMissionEditor();
       }
       await loadCampaigns();
@@ -194,11 +197,13 @@ const CampaignsView = () => {
   const handleToggleMissionManager = async (campaign) => {
     if (missionPanelCampaignId === campaign.id) {
       setMissionPanelCampaignId(null);
+      setTaskPanelMissionId(null);
       resetMissionEditor();
       return;
     }
 
     setMissionPanelCampaignId(campaign.id);
+    setTaskPanelMissionId(null);
     resetMissionEditor();
     await loadCampaignMissions(campaign.id);
   };
@@ -260,12 +265,19 @@ const CampaignsView = () => {
       const response = await campaignAPI.removeMission(campaignId, mission.id);
       toast.success(response.data.message || 'Mission deleted.');
       if (editingMissionId === mission.id) resetMissionEditor();
+      if (taskPanelMissionId === mission.id) setTaskPanelMissionId(null);
       await loadCampaignMissions(campaignId);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not delete mission.');
     } finally {
       setBusyMissionId(null);
     }
+  };
+
+  const handleToggleTaskManager = (missionId) => {
+    setTaskPanelMissionId((currentMissionId) => (
+      currentMissionId === missionId ? null : missionId
+    ));
   };
 
   return (
@@ -620,6 +632,7 @@ const CampaignsView = () => {
                             {campaignMissions.map((mission) => {
                               const missionBadge = missionStatusConfig[mission.status] || missionStatusConfig.open;
                               const spotsLeft = Math.max(0, (mission.required_volunteers || 0) - (mission.assigned_count || 0));
+                              const isTaskPanelOpen = taskPanelMissionId === mission.id;
 
                               return (
                                 <div key={mission.id} className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -641,6 +654,9 @@ const CampaignsView = () => {
                                         <Button type="button" variant="secondary" size="sm" onClick={() => handleEditMission(campaign.id, mission)}>
                                           Edit mission
                                         </Button>
+                                        <Button type="button" variant={isTaskPanelOpen ? 'primary' : 'secondary'} size="sm" onClick={() => handleToggleTaskManager(mission.id)}>
+                                          {isTaskPanelOpen ? 'Hide tasks' : 'Manage tasks'}
+                                        </Button>
                                         <Button
                                           type="button"
                                           variant="danger"
@@ -658,6 +674,7 @@ const CampaignsView = () => {
                                       <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{mission.mission_date ? formatDate(mission.mission_date) : 'Date TBD'}</span>
                                       <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{mission.required_volunteers} needed</span>
                                       <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{mission.assigned_count || 0} assigned</span>
+                                      <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{mission.task_count || 0} tasks</span>
                                       <span className={`rounded-full px-3 py-1.5 ${spotsLeft > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                                         {spotsLeft} spots left
                                       </span>
@@ -685,6 +702,14 @@ const CampaignsView = () => {
                                         </button>
                                       ))}
                                     </div>
+
+                                    {isTaskPanelOpen && (
+                                      <MissionTasksManager
+                                        campaignId={campaign.id}
+                                        mission={mission}
+                                        onTasksChanged={() => loadCampaignMissions(campaign.id)}
+                                      />
+                                    )}
                                   </div>
                                 </div>
                               );

@@ -9,6 +9,7 @@ const publicVolunteerNotificationTypes = new Set([
   'mission_status',
   'application_accepted',
   'application_rejected',
+  'task_assignment',
 ]);
 
 const getMyNotifications = async (req, res, next) => {

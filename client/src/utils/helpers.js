@@ -38,6 +38,13 @@ export const missionStatusConfig = {
   cancelled:   { label: 'Cancelled',   className: 'badge-cancelled' },
 };
 
+export const taskStatusConfig = {
+  todo:        { label: 'To Do',       className: 'badge bg-sky-100 text-sky-700' },
+  in_progress: { label: 'In Progress', className: 'badge bg-amber-100 text-amber-700' },
+  completed:   { label: 'Completed',   className: 'badge bg-emerald-100 text-emerald-700' },
+  cancelled:   { label: 'Cancelled',   className: 'badge bg-rose-100 text-rose-700' },
+};
+
 export const getGoogleMapsUrl = (location, latitude, longitude) => {
   if (latitude && longitude) {
     return `https://www.google.com/maps?q=${latitude},${longitude}`;

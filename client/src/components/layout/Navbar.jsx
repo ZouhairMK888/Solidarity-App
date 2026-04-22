@@ -98,6 +98,8 @@ const formatNotificationTime = (value) => {
 
 const resolveNotificationPath = ({ notification, role }) => {
   switch (notification.type) {
+    case 'task_assignment':
+      return '/';
     case 'campaign_created':
     case 'campaign_updated':
     case 'campaign_status':
@@ -114,6 +116,33 @@ const resolveNotificationPath = ({ notification, role }) => {
     default:
       return role === 'admin' || role === 'organizer' ? '/dashboard/overview' : '/';
   }
+};
+
+const notificationToneMap = {
+  task_assignment: {
+    badge: 'Task',
+    className: 'bg-emerald-100 text-emerald-700',
+  },
+  application_accepted: {
+    badge: 'Accepted',
+    className: 'bg-sky-100 text-sky-700',
+  },
+  application_rejected: {
+    badge: 'Update',
+    className: 'bg-rose-100 text-rose-700',
+  },
+  mission_created: {
+    badge: 'Mission',
+    className: 'bg-sky-100 text-sky-700',
+  },
+  mission_updated: {
+    badge: 'Mission',
+    className: 'bg-sky-100 text-sky-700',
+  },
+  mission_status: {
+    badge: 'Mission',
+    className: 'bg-amber-100 text-amber-700',
+  },
 };
 
 const NotificationBell = () => {
@@ -194,7 +223,16 @@ const NotificationBell = () => {
                   <span className={`mt-1 h-2.5 w-2.5 rounded-full ${notification.is_read ? 'bg-slate-300' : 'bg-emerald-500'}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-semibold text-slate-900">{notification.title || 'Notification'}</p>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-900">{notification.title || 'Notification'}</p>
+                          {notificationToneMap[notification.type] && (
+                            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${notificationToneMap[notification.type].className}`}>
+                              {notificationToneMap[notification.type].badge}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <span className="shrink-0 text-[11px] text-slate-400">{formatNotificationTime(notification.created_at)}</span>
                     </div>
                     <p className="mt-1 text-sm leading-relaxed text-slate-600">{notification.message}</p>
