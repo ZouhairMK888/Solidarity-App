@@ -275,10 +275,15 @@ const CampaignDetailPage = () => {
   const [donationForm, setDonationForm] = useState(() => createDonationForm(user));
   const [isSubmittingDonation, setIsSubmittingDonation] = useState(false);
   const [donationContact, setDonationContact] = useState(null);
+  const [organizerMotivation, setOrganizerMotivation] = useState('');
+  const [organizerExperience, setOrganizerExperience] = useState('');
+  const [isSubmittingOrganizerApplication, setIsSubmittingOrganizerApplication] = useState(false);
   const mapsUrl = campaign ? getGoogleMapsUrl(campaign.location, campaign.latitude, campaign.longitude) : null;
   const hasCoordinates = campaign && Number.isFinite(Number(campaign.latitude)) && Number.isFinite(Number(campaign.longitude));
   const mapPosition = hasCoordinates ? [Number(campaign.latitude), Number(campaign.longitude)] : null;
   const donationsOpen = campaign?.status === 'active';
+  const organizerApplicationStatus = campaign?.organizer_application_status;
+  const isCampaignOrganizer = !!campaign?.is_campaign_organizer;
 
   useEffect(() => {
     setDonationForm((current) => ({
@@ -379,6 +384,42 @@ const CampaignDetailPage = () => {
       toast.error(submitError.response?.data?.message || 'Could not submit your donation right now.');
     } finally {
       setIsSubmittingDonation(false);
+    }
+  };
+
+  const handleSubmitOrganizerApplication = async (event) => {
+    event.preventDefault();
+
+    if (!isAuthenticated) {
+      toast.error('Please sign in to apply as an organizer.');
+      navigate('/login', { state: { from: { pathname: `/campaigns/${id}` } } });
+      return;
+    }
+
+    if (user?.role !== 'volunteer') {
+      toast.error('Only volunteer accounts can apply to organize campaigns.');
+      return;
+    }
+
+    if (!organizerMotivation.trim()) {
+      toast.error('Please explain why you want to organize this campaign.');
+      return;
+    }
+
+    setIsSubmittingOrganizerApplication(true);
+    try {
+      const response = await campaignAPI.applyToOrganize(id, {
+        motivation: organizerMotivation,
+        experience: organizerExperience,
+      });
+      toast.success(response.data.message || 'Organizer application submitted.');
+      setOrganizerMotivation('');
+      setOrganizerExperience('');
+      await refetch();
+    } catch (applyError) {
+      toast.error(applyError.response?.data?.message || 'Could not submit your organizer application.');
+    } finally {
+      setIsSubmittingOrganizerApplication(false);
     }
   };
 
@@ -483,10 +524,73 @@ const CampaignDetailPage = () => {
                       </svg>
                     )}
                     label="Organizer"
-                    value={campaign.organizer_name}
+                    value={campaign.organizer_names || campaign.organizer_name}
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="mb-8 rounded-2xl border border-slate-100 bg-white p-8 shadow-card">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-slate-900">Become an organizer</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Volunteers can request organizer access for this campaign and help coordinate its missions.
+                  </p>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                  {campaign.organizer_count || 1} organizer{Number(campaign.organizer_count || 1) === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              {isCampaignOrganizer ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-800">
+                  You are already an organizer for this campaign.
+                </div>
+              ) : organizerApplicationStatus ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-800">
+                  Your organizer application is {organizerApplicationStatus}.
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitOrganizerApplication} className="space-y-4">
+                  <div>
+                    <label htmlFor="organizer-motivation" className="text-sm font-semibold text-slate-700">Motivation</label>
+                    <textarea
+                      id="organizer-motivation"
+                      value={organizerMotivation}
+                      onChange={(event) => setOrganizerMotivation(event.target.value)}
+                      rows={4}
+                      placeholder="Why do you want to help organize this campaign?"
+                      className="input-field mt-1.5 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="organizer-experience" className="text-sm font-semibold text-slate-700">Experience</label>
+                    <textarea
+                      id="organizer-experience"
+                      value={organizerExperience}
+                      onChange={(event) => setOrganizerExperience(event.target.value)}
+                      rows={3}
+                      placeholder="Share any volunteering, logistics, communication, or team coordination experience."
+                      className="input-field mt-1.5 resize-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    {isAuthenticated && user?.role !== 'volunteer' ? (
+                      <p className="text-sm font-medium text-amber-600">Only volunteer accounts can apply.</p>
+                    ) : (
+                      <p className="text-sm text-slate-500">Your request will be reviewed by the campaign team.</p>
+                    )}
+                    <Button
+                      type="submit"
+                      loading={isSubmittingOrganizerApplication}
+                      disabled={isSubmittingOrganizerApplication || (isAuthenticated && user?.role !== 'volunteer')}
+                    >
+                      {isSubmittingOrganizerApplication ? 'Submitting...' : 'Apply as organizer'}
+                    </Button>
+                  </div>
+                </form>
+              )}
             </div>
 
             {hasCoordinates && (

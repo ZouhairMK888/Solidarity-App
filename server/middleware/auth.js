@@ -5,7 +5,10 @@ const getUserFromToken = async (token) => {
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
   const [rows] = await pool.query(
-    'SELECT id, name, email, role, is_active FROM users WHERE id = ?',
+    `SELECT u.id, u.name, u.email, u.role, u.is_active,
+            (SELECT COUNT(*) FROM campaign_organizers co WHERE co.user_id = u.id AND co.status = 'active') AS campaign_organizer_count
+     FROM users u
+     WHERE u.id = ?`,
     [decoded.id]
   );
 

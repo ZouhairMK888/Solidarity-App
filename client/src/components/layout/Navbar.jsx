@@ -20,6 +20,7 @@ const UserMenu = ({ user, onLogout }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
+  const isCampaignOrganizer = Number(user?.campaign_organizer_count || 0) > 0;
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -55,7 +56,7 @@ const UserMenu = ({ user, onLogout }) => {
               {user.role}
             </span>
           </div>
-          {(user.role === 'admin' || user.role === 'organizer') && (
+          {(user.role === 'admin' || user.role === 'organizer' || isCampaignOrganizer) && (
             <button
               onClick={() => {
                 setOpen(false);
@@ -110,6 +111,9 @@ const resolveNotificationPath = ({ notification, role }) => {
     case 'application_rejected':
       return '/';
     case 'application_submitted':
+    case 'organizer_application_submitted':
+    case 'organizer_application_accepted':
+    case 'organizer_application_rejected':
       return '/dashboard/control';
     case 'organizer_created':
       return role === 'admin' ? '/dashboard/organizers' : '/dashboard/overview';
@@ -262,6 +266,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isCampaignOrganizer = Number(user?.campaign_organizer_count || 0) > 0;
 
   const handleLogout = () => {
     logout();
@@ -271,7 +276,7 @@ const Navbar = () => {
 
   const navLinks = [
     { label: 'Campaigns', to: '/' },
-    ...((isAuthenticated && (user?.role === 'admin' || user?.role === 'organizer'))
+    ...((isAuthenticated && (user?.role === 'admin' || user?.role === 'organizer' || isCampaignOrganizer))
       ? [{ label: user?.role === 'admin' ? 'Admin Dashboard' : 'Organizer Studio', to: '/dashboard' }]
       : []),
   ];
@@ -358,7 +363,7 @@ const Navbar = () => {
                   <div className="px-4 py-2">
                     <NotificationBell />
                   </div>
-                  {(user?.role === 'admin' || user?.role === 'organizer') && (
+                  {(user?.role === 'admin' || user?.role === 'organizer' || isCampaignOrganizer) && (
                     <button
                       onClick={() => { navigate('/dashboard'); setMobileOpen(false); }}
                       className="w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"

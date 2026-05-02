@@ -45,9 +45,17 @@ class DonationModel {
     `;
     const params = [];
 
-    if (user?.role === 'organizer') {
-      query += ' AND c.created_by = ?';
-      params.push(user.id);
+    if (user?.role !== 'admin') {
+      query += `
+        AND (
+          c.created_by = ?
+          OR EXISTS (
+            SELECT 1 FROM campaign_organizers co
+            WHERE co.campaign_id = c.id AND co.user_id = ? AND co.status = 'active'
+          )
+        )
+      `;
+      params.push(user.id, user.id);
     }
 
     if (status) {
@@ -129,9 +137,17 @@ class DonationModel {
     `;
     const params = [];
 
-    if (user?.role === 'organizer') {
-      query += ' AND c.created_by = ?';
-      params.push(user.id);
+    if (user?.role !== 'admin') {
+      query += `
+        AND (
+          c.created_by = ?
+          OR EXISTS (
+            SELECT 1 FROM campaign_organizers co
+            WHERE co.campaign_id = c.id AND co.user_id = ? AND co.status = 'active'
+          )
+        )
+      `;
+      params.push(user.id, user.id);
     }
 
     const [rows] = await pool.query(query, params);

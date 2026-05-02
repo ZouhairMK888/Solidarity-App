@@ -36,13 +36,13 @@ const buildVolunteerMissionMessage = (action, missionTitle, campaignTitle, statu
   return `The mission "${missionTitle}" in "${campaignTitle}" has been updated.`;
 };
 
-const ensureCampaignAccess = (campaign, user) => {
+const ensureCampaignAccess = async (campaign, user) => {
   if (!campaign) {
     return { status: 404, message: 'Campaign not found.' };
   }
 
-  if (user.role === 'organizer' && Number(campaign.created_by) !== Number(user.id)) {
-    return { status: 403, message: 'You can only manage missions for campaigns you created.' };
+  if (!await CampaignModel.canUserManage(campaign, user)) {
+    return { status: 403, message: 'You can only manage missions for campaigns assigned to you.' };
   }
 
   return null;
@@ -91,7 +91,7 @@ const createMission = async (req, res, next) => {
     const { title, description, required_volunteers, location, mission_date, status } = req.body;
 
     const campaign = await CampaignModel.findById(campaignId);
-    const accessError = ensureCampaignAccess(campaign, req.user);
+    const accessError = await ensureCampaignAccess(campaign, req.user);
     if (accessError) {
       return res.status(accessError.status).json({
         success: false,
@@ -159,7 +159,7 @@ const updateMission = async (req, res, next) => {
     const { title, description, required_volunteers, location, mission_date, status } = req.body;
 
     const campaign = await CampaignModel.findById(campaignId);
-    const accessError = ensureCampaignAccess(campaign, req.user);
+    const accessError = await ensureCampaignAccess(campaign, req.user);
     if (accessError) {
       return res.status(accessError.status).json({
         success: false,
@@ -234,7 +234,7 @@ const updateMissionStatus = async (req, res, next) => {
     const { status } = req.body;
 
     const campaign = await CampaignModel.findById(campaignId);
-    const accessError = ensureCampaignAccess(campaign, req.user);
+    const accessError = await ensureCampaignAccess(campaign, req.user);
     if (accessError) {
       return res.status(accessError.status).json({
         success: false,
@@ -286,7 +286,7 @@ const deleteMission = async (req, res, next) => {
     const { id: campaignId, missionId } = req.params;
 
     const campaign = await CampaignModel.findById(campaignId);
-    const accessError = ensureCampaignAccess(campaign, req.user);
+    const accessError = await ensureCampaignAccess(campaign, req.user);
     if (accessError) {
       return res.status(accessError.status).json({
         success: false,

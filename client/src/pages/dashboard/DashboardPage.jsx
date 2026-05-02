@@ -104,10 +104,13 @@ const MobileLink = ({ item }) => {
 
 const DashboardPage = () => {
   const { user } = useAuth();
+  const isCampaignOrganizer = Number(user?.campaign_organizer_count || 0) > 0;
 
   const visibleItems = useMemo(
-    () => navigationItems.filter((item) => item.roles.includes(user?.role)),
-    [user?.role]
+    () => navigationItems.filter((item) => (
+      item.roles.includes(user?.role) || (isCampaignOrganizer && item.roles.includes('organizer'))
+    )),
+    [isCampaignOrganizer, user?.role]
   );
 
   return (

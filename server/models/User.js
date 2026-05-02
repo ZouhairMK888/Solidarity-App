@@ -3,13 +3,22 @@ const bcrypt = require('bcryptjs');
 
 class UserModel {
   static async findByEmail(email) {
-    const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    const [rows] = await pool.query(
+      `SELECT u.*,
+              (SELECT COUNT(*) FROM campaign_organizers co WHERE co.user_id = u.id AND co.status = 'active') AS campaign_organizer_count
+       FROM users u
+       WHERE u.email = ?`,
+      [email]
+    );
     return rows[0] || null;
   }
 
   static async findById(id) {
     const [rows] = await pool.query(
-      'SELECT id, name, email, phone, role, profile_image, is_active, created_at FROM users WHERE id = ?',
+      `SELECT u.id, u.name, u.email, u.phone, u.role, u.profile_image, u.is_active, u.created_at,
+              (SELECT COUNT(*) FROM campaign_organizers co WHERE co.user_id = u.id AND co.status = 'active') AS campaign_organizer_count
+       FROM users u
+       WHERE u.id = ?`,
       [id]
     );
     return rows[0] || null;
@@ -30,8 +39,9 @@ class UserModel {
 
   static async findAll({ role, search } = {}) {
     let query = `
-      SELECT id, name, email, phone, role, profile_image, is_active, email_verified_at, created_at
-      FROM users
+      SELECT u.id, u.name, u.email, u.phone, u.role, u.profile_image, u.is_active, u.email_verified_at, u.created_at,
+             (SELECT COUNT(*) FROM campaign_organizers co WHERE co.user_id = u.id AND co.status = 'active') AS campaign_organizer_count
+      FROM users u
       WHERE 1=1
     `;
     const params = [];

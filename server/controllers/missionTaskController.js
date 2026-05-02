@@ -4,13 +4,13 @@ const MissionTaskModel = require('../models/MissionTask');
 
 const allowedTaskStatuses = ['todo', 'in_progress', 'completed', 'cancelled'];
 
-const ensureCampaignAccess = (campaign, user) => {
+const ensureCampaignAccess = async (campaign, user) => {
   if (!campaign) {
     return { status: 404, message: 'Campaign not found.' };
   }
 
-  if (user.role === 'organizer' && Number(campaign.created_by) !== Number(user.id)) {
-    return { status: 403, message: 'You can only manage tasks for campaigns you created.' };
+  if (!await CampaignModel.canUserManage(campaign, user)) {
+    return { status: 403, message: 'You can only manage tasks for campaigns assigned to you.' };
   }
 
   return null;
@@ -42,7 +42,7 @@ const getMissionTasks = async (req, res, next) => {
   try {
     const { id: campaignId, missionId } = req.params;
     const campaign = await CampaignModel.findById(campaignId);
-    const accessError = ensureCampaignAccess(campaign, req.user);
+    const accessError = await ensureCampaignAccess(campaign, req.user);
 
     if (accessError) {
       return res.status(accessError.status).json({
@@ -78,7 +78,7 @@ const createMissionTask = async (req, res, next) => {
     const { title, description, required_volunteers, status } = req.body;
 
     const campaign = await CampaignModel.findById(campaignId);
-    const accessError = ensureCampaignAccess(campaign, req.user);
+    const accessError = await ensureCampaignAccess(campaign, req.user);
 
     if (accessError) {
       return res.status(accessError.status).json({
@@ -142,7 +142,7 @@ const updateMissionTask = async (req, res, next) => {
     const { title, description, required_volunteers, status } = req.body;
 
     const campaign = await CampaignModel.findById(campaignId);
-    const accessError = ensureCampaignAccess(campaign, req.user);
+    const accessError = await ensureCampaignAccess(campaign, req.user);
 
     if (accessError) {
       return res.status(accessError.status).json({
@@ -215,7 +215,7 @@ const deleteMissionTask = async (req, res, next) => {
     const { id: campaignId, missionId, taskId } = req.params;
 
     const campaign = await CampaignModel.findById(campaignId);
-    const accessError = ensureCampaignAccess(campaign, req.user);
+    const accessError = await ensureCampaignAccess(campaign, req.user);
 
     if (accessError) {
       return res.status(accessError.status).json({

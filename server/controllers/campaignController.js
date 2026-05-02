@@ -45,16 +45,56 @@ const deleteUploadedFile = (filePath) => {
   }
 };
 
-const ensureCampaignAccess = (campaign, user) => {
+const ensureCampaignAccess = async (campaign, user) => {
   if (!campaign) {
     return { status: 404, message: 'Campaign not found.' };
   }
 
-  if (user.role === 'organizer' && campaign.created_by !== user.id) {
-    return { status: 403, message: 'You can only manage campaigns you created.' };
+  if (!await CampaignModel.canUserManage(campaign, user)) {
+    return { status: 403, message: 'You can only manage campaigns assigned to you.' };
   }
 
   return null;
+};
+
+const normalizeDateOnly = (value, label) => {
+  if (value === undefined || value === null || value === '') {
+    return { value: null };
+  }
+
+  const trimmed = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return { error: `${label} must be a valid date.` };
+  }
+
+  const [year, month, day] = trimmed.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const isValid = parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
+
+  if (!isValid) {
+    return { error: `${label} must be a valid date.` };
+  }
+
+  return { value: trimmed };
+};
+
+const validateCampaignDateRange = ({ start_date, end_date }) => {
+  const startDate = normalizeDateOnly(start_date, 'Start date');
+  if (startDate.error) return { error: startDate.error };
+
+  const endDate = normalizeDateOnly(end_date, 'End date');
+  if (endDate.error) return { error: endDate.error };
+
+  if (startDate.value && endDate.value && endDate.value < startDate.value) {
+    return { error: 'End date must be on or after the start date.' };
+  }
+
+  return {
+    start_date: startDate.value,
+    end_date: endDate.value,
+  };
 };
 
 const attachTasksToMissions = async (missions, { excludeCancelled = false } = {}) => {
@@ -101,7 +141,7 @@ const getCampaignById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const campaign = await CampaignModel.findById(id);
+    const campaign = await CampaignModel.findById(id, req.user?.id);
     if (!campaign) {
       return res.status(404).json({
         success: false,
@@ -131,6 +171,12 @@ const createCampaign = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Title is required.' });
     }
 
+    const dateRange = validateCampaignDateRange({ start_date, end_date });
+    if (dateRange.error) {
+      if (req.file) deleteUploadedFile(`/uploads/campaigns/${req.file.filename}`);
+      return res.status(400).json({ success: false, message: dateRange.error });
+    }
+
     const parsedLatitude = latitude === '' || latitude === undefined || latitude === null ? null : Number(latitude);
     const parsedLongitude = longitude === '' || longitude === undefined || longitude === null ? null : Number(longitude);
     const image_url = req.file ? `/uploads/campaigns/${req.file.filename}` : null;
@@ -142,7 +188,9 @@ const createCampaign = async (req, res, next) => {
       location,
       latitude: Number.isFinite(parsedLatitude) ? parsedLatitude : null,
       longitude: Number.isFinite(parsedLongitude) ? parsedLongitude : null,
-      start_date, end_date, status,
+      start_date: dateRange.start_date,
+      end_date: dateRange.end_date,
+      status,
       created_by: req.user.id,
     });
 
@@ -196,7 +244,7 @@ const updateCampaignStatus = async (req, res, next) => {
     }
 
     const campaign = await CampaignModel.findById(id);
-    const accessError = ensureCampaignAccess(campaign, req.user);
+    const accessError = await ensureCampaignAccess(campaign, req.user);
     if (accessError) {
       return res.status(accessError.status).json({
         success: false,
@@ -241,8 +289,14 @@ const updateCampaign = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid campaign status.' });
     }
 
+    const dateRange = validateCampaignDateRange({ start_date, end_date });
+    if (dateRange.error) {
+      if (req.file) deleteUploadedFile(`/uploads/campaigns/${req.file.filename}`);
+      return res.status(400).json({ success: false, message: dateRange.error });
+    }
+
     const existingCampaign = await CampaignModel.findById(id);
-    const accessError = ensureCampaignAccess(existingCampaign, req.user);
+    const accessError = await ensureCampaignAccess(existingCampaign, req.user);
     if (accessError) {
       if (req.file) deleteUploadedFile(`/uploads/campaigns/${req.file.filename}`);
       return res.status(accessError.status).json({
@@ -262,8 +316,8 @@ const updateCampaign = async (req, res, next) => {
       location,
       latitude: Number.isFinite(parsedLatitude) ? parsedLatitude : null,
       longitude: Number.isFinite(parsedLongitude) ? parsedLongitude : null,
-      start_date,
-      end_date,
+      start_date: dateRange.start_date,
+      end_date: dateRange.end_date,
       status,
     });
 
@@ -296,11 +350,17 @@ const deleteCampaign = async (req, res, next) => {
   try {
     const { id } = req.params;
     const campaign = await CampaignModel.findById(id);
-    const accessError = ensureCampaignAccess(campaign, req.user);
-    if (accessError) {
-      return res.status(accessError.status).json({
+    if (!campaign) {
+      return res.status(404).json({
         success: false,
-        message: accessError.message,
+        message: 'Campaign not found.',
+      });
+    }
+
+    if (req.user.role !== 'admin' && Number(campaign.created_by) !== Number(req.user.id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins or the campaign creator can delete this campaign.',
       });
     }
 

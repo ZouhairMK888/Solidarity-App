@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 const ProtectedRoute = ({ children, roles }) => {
   const { isAuthenticated, user, loading } = useAuth();
   const location = useLocation();
+  const isCampaignOrganizer = Number(user?.campaign_organizer_count || 0) > 0;
 
   if (loading) {
     return (
@@ -24,7 +25,7 @@ const ProtectedRoute = ({ children, roles }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (roles && !roles.includes(user?.role)) {
+  if (roles && !roles.includes(user?.role) && !(roles.includes('organizer') && isCampaignOrganizer)) {
     return <Navigate to="/" replace />;
   }
 

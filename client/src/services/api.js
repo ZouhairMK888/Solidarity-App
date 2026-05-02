@@ -63,6 +63,9 @@ export const campaignAPI = {
   updateMissionTask: (campaignId, missionId, taskId, data) => api.put(`/campaigns/${campaignId}/missions/${missionId}/tasks/${taskId}`, data),
   removeMissionTask: (campaignId, missionId, taskId) => api.delete(`/campaigns/${campaignId}/missions/${missionId}/tasks/${taskId}`),
   applyToMission: (campaignId, missionId, data = {}) => api.post(`/campaigns/${campaignId}/missions/${missionId}/apply`, data),
+  applyToOrganize: (campaignId, data = {}) => api.post(`/campaigns/${campaignId}/organizer-applications`, data),
+  getOrganizerApplications: (params) => api.get('/campaigns/organizer-applications/manage', { params }),
+  reviewOrganizerApplication: (id, data) => api.patch(`/campaigns/organizer-applications/${id}/status`, data),
   createDonation: (campaignId, data) => api.post(`/campaigns/${campaignId}/donations`, data),
 };
 

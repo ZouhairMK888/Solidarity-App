@@ -21,9 +21,21 @@ import {
   missionStatuses,
 } from '../components/DashboardPrimitives';
 
+const getCampaignDateRangeError = ({ start_date, end_date }) => {
+  if (start_date && end_date && end_date < start_date) {
+    return 'End date must be on or after the start date.';
+  }
+
+  return '';
+};
+
 const CampaignsView = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const canCreateCampaign = user?.role === 'admin' || user?.role === 'organizer';
+  const canDeleteCampaign = (campaign) => (
+    isAdmin || Number(campaign.created_by) === Number(user?.id)
+  );
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submittingCampaign, setSubmittingCampaign] = useState(false);
@@ -40,6 +52,7 @@ const CampaignsView = () => {
   const [loadingMissionsCampaignId, setLoadingMissionsCampaignId] = useState(null);
   const [busyMissionId, setBusyMissionId] = useState(null);
   const [campaignForm, setCampaignForm] = useState(createEmptyCampaignForm(isAdmin));
+  const campaignDateRangeError = getCampaignDateRangeError(campaignForm);
 
   const loadCampaigns = useCallback(async () => {
     setLoading(true);
@@ -130,6 +143,11 @@ const CampaignsView = () => {
 
   const handleSaveCampaign = async (event) => {
     event.preventDefault();
+    if (campaignDateRangeError) {
+      toast.error(campaignDateRangeError);
+      return;
+    }
+
     setSubmittingCampaign(true);
     try {
       const formData = new FormData();
@@ -156,6 +174,7 @@ const CampaignsView = () => {
   };
 
   const handleDeleteCampaign = async (campaign) => {
+    if (!canDeleteCampaign(campaign)) return;
     if (!window.confirm(`Delete "${campaign.title}"? This action cannot be undone.`)) return;
 
     setBusyCampaignId(campaign.id);
@@ -288,10 +307,17 @@ const CampaignsView = () => {
             title={isAdmin ? 'Campaigns' : 'Your campaigns'}
             subtitle={editingCampaignId
               ? 'Refine an existing campaign, swap its cover image, and keep the public details current.'
-              : 'Create a campaign and start shaping the missions volunteers will see.'}
+              : canCreateCampaign
+                ? 'Create a campaign and start shaping the missions volunteers will see.'
+                : 'Edit the campaigns where you were accepted as an organizer.'}
             action={<Button variant="secondary" onClick={loadCampaigns}>Refresh</Button>}
           />
 
+          {!canCreateCampaign && !editingCampaignId ? (
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">
+              Choose a managed campaign below and press Edit to update its details. Creating new campaigns is still reserved for admins and global organizer accounts.
+            </div>
+          ) : (
           <form onSubmit={handleSaveCampaign} className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Input
@@ -394,10 +420,14 @@ const CampaignsView = () => {
                 id="end_date"
                 name="end_date"
                 type="date"
+                min={campaignForm.start_date || undefined}
                 value={campaignForm.end_date}
                 onChange={handleCampaignChange}
-                className="input-field mt-1.5"
+                className={`input-field mt-1.5 ${campaignDateRangeError ? 'border-red-300 focus:ring-red-500' : ''}`}
               />
+              {campaignDateRangeError && (
+                <p className="mt-2 text-xs font-semibold text-red-600">{campaignDateRangeError}</p>
+              )}
             </div>
             <div className="sm:col-span-2 flex justify-end">
               <div className="flex gap-3">
@@ -406,12 +436,13 @@ const CampaignsView = () => {
                     Cancel edit
                   </Button>
                 )}
-                <Button type="submit" loading={submittingCampaign}>
+                <Button type="submit" loading={submittingCampaign} disabled={!!campaignDateRangeError}>
                   {submittingCampaign ? 'Saving campaign...' : editingCampaignId ? 'Update campaign' : 'Create campaign'}
                 </Button>
               </div>
             </div>
           </form>
+          )}
         </Card>
 
         <Card className="relative overflow-hidden border-slate-900 bg-slate-900 text-white">
@@ -512,15 +543,17 @@ const CampaignsView = () => {
                     >
                       {isMissionPanelOpen ? 'Hide missions' : 'Manage missions'}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="danger"
-                      size="sm"
-                      loading={busyCampaignId === campaign.id}
-                      onClick={() => handleDeleteCampaign(campaign)}
-                    >
-                      Delete
-                    </Button>
+                    {canDeleteCampaign(campaign) && (
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        loading={busyCampaignId === campaign.id}
+                        onClick={() => handleDeleteCampaign(campaign)}
+                      >
+                        Delete
+                      </Button>
+                    )}
                   </div>
 
                   {isMissionPanelOpen && (

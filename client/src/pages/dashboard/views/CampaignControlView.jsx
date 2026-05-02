@@ -32,6 +32,10 @@ const CampaignControlView = () => {
   const [applicationsFilter, setApplicationsFilter] = useState('pending');
   const [loadingApplications, setLoadingApplications] = useState(true);
   const [busyApplicationId, setBusyApplicationId] = useState(null);
+  const [organizerApplications, setOrganizerApplications] = useState([]);
+  const [organizerApplicationsFilter, setOrganizerApplicationsFilter] = useState('pending');
+  const [loadingOrganizerApplications, setLoadingOrganizerApplications] = useState(true);
+  const [busyOrganizerApplicationId, setBusyOrganizerApplicationId] = useState(null);
 
   const loadCampaigns = useCallback(async () => {
     setLoadingCampaigns(true);
@@ -63,6 +67,18 @@ const CampaignControlView = () => {
     }
   }, [applicationsFilter, isAdmin]);
 
+  const loadOrganizerApplications = useCallback(async (status = organizerApplicationsFilter) => {
+    setLoadingOrganizerApplications(true);
+    try {
+      const response = await campaignAPI.getOrganizerApplications({ status });
+      setOrganizerApplications(response.data.data.applications || []);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Unable to load organizer requests right now.');
+    } finally {
+      setLoadingOrganizerApplications(false);
+    }
+  }, [organizerApplicationsFilter]);
+
   useEffect(() => {
     loadCampaigns();
   }, [loadCampaigns]);
@@ -71,9 +87,17 @@ const CampaignControlView = () => {
     loadApplications(applicationsFilter);
   }, [applicationsFilter, loadApplications]);
 
+  useEffect(() => {
+    loadOrganizerApplications(organizerApplicationsFilter);
+  }, [organizerApplicationsFilter, loadOrganizerApplications]);
+
   const pendingCount = useMemo(
     () => applications.filter((application) => application.status === 'pending').length,
     [applications]
+  );
+  const pendingOrganizerCount = useMemo(
+    () => organizerApplications.filter((application) => application.status === 'pending').length,
+    [organizerApplications]
   );
 
   const handleCampaignStatusChange = async (campaignId, status) => {
@@ -102,6 +126,22 @@ const CampaignControlView = () => {
     }
   };
 
+  const handleReviewOrganizerApplication = async (applicationId, status) => {
+    setBusyOrganizerApplicationId(applicationId);
+    try {
+      const response = await campaignAPI.reviewOrganizerApplication(applicationId, { status });
+      toast.success(response.data.message || `Organizer application ${status}.`);
+      await Promise.all([
+        loadOrganizerApplications(organizerApplicationsFilter),
+        loadCampaigns(),
+      ]);
+    } catch (error) {
+      toast.error(error.response?.data?.message || `Could not ${status === 'accepted' ? 'accept' : 'reject'} this organizer application.`);
+    } finally {
+      setBusyOrganizerApplicationId(null);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
@@ -123,11 +163,16 @@ const CampaignControlView = () => {
         {isAdmin ? (
           <Card>
             <SectionTitle
-              title="Mission request queue"
-              subtitle="Review volunteer applications and decide who should be assigned next."
+              title="Request queues"
+              subtitle="Review organizer and volunteer applications from one place."
             />
-            <div className="rounded-3xl bg-amber-50 px-5 py-4 text-sm text-amber-700">
-              {pendingCount} pending request{pendingCount === 1 ? '' : 's'} in the currently loaded view.
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-3xl bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
+                {pendingOrganizerCount} pending organizer request{pendingOrganizerCount === 1 ? '' : 's'}.
+              </div>
+              <div className="rounded-3xl bg-amber-50 px-5 py-4 text-sm text-amber-700">
+                {pendingCount} pending mission request{pendingCount === 1 ? '' : 's'}.
+              </div>
             </div>
           </Card>
         ) : (
@@ -221,6 +266,101 @@ const CampaignControlView = () => {
           <MissionTaskBoard campaigns={campaigns} />
         )
       )}
+
+      <section>
+        <SectionTitle
+          title="Organizer requests"
+          subtitle="Accept volunteers who should help manage specific campaigns."
+          action={
+            <div className="w-full sm:w-60">
+              <label htmlFor="organizer-application-filter" className="text-sm font-semibold text-slate-700">Filter</label>
+              <select
+                id="organizer-application-filter"
+                value={organizerApplicationsFilter}
+                onChange={(event) => setOrganizerApplicationsFilter(event.target.value)}
+                className="input-field mt-1.5"
+              >
+                <option value="pending">Pending</option>
+                <option value="accepted">Accepted</option>
+                <option value="rejected">Rejected</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+          }
+        />
+
+        {loadingOrganizerApplications ? (
+          <Card className="px-6 py-5 text-sm text-slate-500">Loading organizer requests...</Card>
+        ) : organizerApplications.length ? (
+          <div className="space-y-4">
+            {organizerApplications.map((application) => (
+              <Card key={application.id}>
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-display text-xl text-slate-900">{application.volunteer_name}</p>
+                      <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${applicationStatusToneMap[application.status] || applicationStatusToneMap.pending}`}>
+                        {formatOptionLabel(application.status)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{application.volunteer_email}</span>
+                      {application.volunteer_phone && (
+                        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{application.volunteer_phone}</span>
+                      )}
+                      <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{application.campaign_title}</span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">
+                        Applied {formatDate(application.created_at)}
+                      </span>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Motivation</p>
+                        <p className="mt-2 leading-relaxed text-slate-600">{application.motivation}</p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Experience</p>
+                        <p className="mt-2 leading-relaxed text-slate-600">{application.experience || 'No experience details provided.'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 xl:w-48 xl:flex-col">
+                    {application.status === 'pending' ? (
+                      <>
+                        <Button
+                          type="button"
+                          className="xl:w-full"
+                          loading={busyOrganizerApplicationId === application.id}
+                          onClick={() => handleReviewOrganizerApplication(application.id, 'accepted')}
+                        >
+                          Accept organizer
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          className="xl:w-full"
+                          loading={busyOrganizerApplicationId === application.id}
+                          onClick={() => handleReviewOrganizerApplication(application.id, 'rejected')}
+                        >
+                          Refuse request
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600">
+                        Already {application.status}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel title="No organizer requests in this filter" description="Volunteer requests to become campaign organizers will appear here." />
+        )}
+      </section>
 
       {isAdmin && (
         <section>

@@ -1,11 +1,25 @@
 const { pool } = require('../config/database');
 const MissionModel = require('./Mission');
+const CampaignOrganizerModel = require('./CampaignOrganizer');
 
 class CampaignModel {
+  static buildOrganizerSelect() {
+    return `
+      (SELECT GROUP_CONCAT(CONCAT(u.name, ' <', u.email, '>') ORDER BY CASE co.role WHEN 'owner' THEN 0 ELSE 1 END, co.created_at ASC SEPARATOR ', ')
+       FROM campaign_organizers co
+       INNER JOIN users u ON u.id = co.user_id
+       WHERE co.campaign_id = c.id AND co.status = 'active') as organizer_names,
+      (SELECT COUNT(*)
+       FROM campaign_organizers co
+       WHERE co.campaign_id = c.id AND co.status = 'active') as organizer_count
+    `;
+  }
+
   static async findAll({ status, search, page = 1, limit = 12 } = {}) {
     const offset = (page - 1) * limit;
     let query = `
       SELECT c.*, u.name as organizer_name, u.email as organizer_email,
+        ${this.buildOrganizerSelect()},
         (SELECT COUNT(*) FROM missions m WHERE m.campaign_id = c.id) as mission_count
       FROM campaigns c
       LEFT JOIN users u ON u.id = c.created_by
@@ -48,15 +62,34 @@ class CampaignModel {
     };
   }
 
-  static async findById(id) {
+  static async findById(id, userId = null) {
+    const applicationStatusSelect = userId
+      ? `(SELECT oa.status FROM organizer_applications oa WHERE oa.campaign_id = c.id AND oa.user_id = ? LIMIT 1) as organizer_application_status`
+      : 'NULL as organizer_application_status';
+    const isCampaignOrganizerSelect = userId
+      ? `(SELECT COUNT(*) FROM campaign_organizers co WHERE co.campaign_id = c.id AND co.user_id = ? AND co.status = 'active') as is_campaign_organizer`
+      : '0 as is_campaign_organizer';
+    const params = userId ? [userId, userId, id] : [id];
+
     const [rows] = await pool.query(
-      `SELECT c.*, u.name as organizer_name, u.email as organizer_email
+      `SELECT c.*, u.name as organizer_name, u.email as organizer_email,
+              ${this.buildOrganizerSelect()},
+              ${applicationStatusSelect},
+              ${isCampaignOrganizerSelect}
        FROM campaigns c
        LEFT JOIN users u ON u.id = c.created_by
        WHERE c.id = ?`,
-      [id]
+      params
     );
-    return rows[0] || null;
+    const campaign = rows[0] || null;
+
+    if (!campaign) {
+      return null;
+    }
+
+    campaign.organizers = await CampaignOrganizerModel.findByCampaignId(id);
+    campaign.is_campaign_organizer = Number(campaign.is_campaign_organizer || 0) > 0;
+    return campaign;
   }
 
   static async getMissions(campaignId, userId = null) {
@@ -74,12 +107,17 @@ class CampaignModel {
         location,
         latitude || null,
         longitude || null,
-        start_date,
-        end_date,
+        start_date || null,
+        end_date || null,
         status || 'draft',
         created_by,
       ]
     );
+    await CampaignOrganizerModel.upsert({
+      campaignId: result.insertId,
+      userId: created_by,
+      role: 'owner',
+    });
     return result.insertId;
   }
 
@@ -100,6 +138,7 @@ class CampaignModel {
   static async findManageable({ user }) {
     let query = `
       SELECT c.*, u.name as organizer_name, u.email as organizer_email,
+        ${this.buildOrganizerSelect()},
         (SELECT COUNT(*) FROM missions m WHERE m.campaign_id = c.id) as mission_count
       FROM campaigns c
       LEFT JOIN users u ON u.id = c.created_by
@@ -107,9 +146,17 @@ class CampaignModel {
     `;
     const params = [];
 
-    if (user.role === 'organizer') {
-      query += ' AND c.created_by = ?';
-      params.push(user.id);
+    if (user.role !== 'admin') {
+      query += `
+        AND (
+          c.created_by = ?
+          OR EXISTS (
+            SELECT 1 FROM campaign_organizers co
+            WHERE co.campaign_id = c.id AND co.user_id = ? AND co.status = 'active'
+          )
+        )
+      `;
+      params.push(user.id, user.id);
     }
 
     query += ' ORDER BY c.created_at DESC';
@@ -147,6 +194,22 @@ class CampaignModel {
   static async delete(id) {
     const [result] = await pool.query('DELETE FROM campaigns WHERE id = ?', [id]);
     return result.affectedRows > 0;
+  }
+
+  static async canUserManage(campaign, user) {
+    if (!campaign || !user) {
+      return false;
+    }
+
+    if (user.role === 'admin') {
+      return true;
+    }
+
+    if (Number(campaign.created_by) === Number(user.id)) {
+      return true;
+    }
+
+    return CampaignOrganizerModel.isActiveOrganizer(campaign.id, user.id);
   }
 }
 

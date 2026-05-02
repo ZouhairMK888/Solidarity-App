@@ -1,4 +1,5 @@
 const CampaignModel = require('../models/Campaign');
+const CampaignOrganizerModel = require('../models/CampaignOrganizer');
 const DonationModel = require('../models/Donation');
 const { notifyActiveAdmins, notifyUsers } = require('../services/notificationService');
 
@@ -18,13 +19,14 @@ const formatAmount = (value) => Number(value || 0).toLocaleString('en-US', {
   maximumFractionDigits: 2,
 });
 
-const ensureDonationAccess = (donation, user) => {
+const ensureDonationAccess = async (donation, user) => {
   if (!donation) {
     return { status: 404, message: 'Donation not found.' };
   }
 
-  if (user.role === 'organizer' && Number(donation.campaign_owner_id) !== Number(user.id)) {
-    return { status: 403, message: 'You can only manage donations for your own campaigns.' };
+  const campaign = await CampaignModel.findById(donation.campaign_id);
+  if (!await CampaignModel.canUserManage(campaign, user)) {
+    return { status: 403, message: 'You can only manage donations for campaigns assigned to you.' };
   }
 
   return null;
@@ -37,13 +39,16 @@ const notifyDonationStakeholdersSafely = async ({ donation, actorName }) => {
     : `${donation.donor_name} offered material support for "${donation.campaign_title}".`;
 
   try {
+    const campaignOrganizers = await CampaignOrganizerModel.findByCampaignId(donation.campaign_id);
     await notifyUsers({
       title: isFinancial ? 'New financial donation' : 'New material donation',
       message: isFinancial
         ? `${baseMessage} Reach out at ${donation.donor_email} to coordinate the next steps.`
         : `${baseMessage} Review the details and confirm with the donor at ${donation.donor_email}.`,
       type: 'donation_created',
-      userIds: [donation.campaign_owner_id],
+      userIds: campaignOrganizers.length
+        ? campaignOrganizers.map((organizer) => organizer.user_id)
+        : [donation.campaign_owner_id],
     });
   } catch (error) {
     console.error('Failed to notify organizer about donation:', error.message);
@@ -181,7 +186,7 @@ const updateDonation = async (req, res, next) => {
   try {
     const { donationId } = req.params;
     const existingDonation = await DonationModel.findById(donationId);
-    const accessError = ensureDonationAccess(existingDonation, req.user);
+    const accessError = await ensureDonationAccess(existingDonation, req.user);
 
     if (accessError) {
       return res.status(accessError.status).json({
@@ -271,7 +276,7 @@ const updateDonationStatus = async (req, res, next) => {
     }
 
     const existingDonation = await DonationModel.findById(donationId);
-    const accessError = ensureDonationAccess(existingDonation, req.user);
+    const accessError = await ensureDonationAccess(existingDonation, req.user);
 
     if (accessError) {
       return res.status(accessError.status).json({
@@ -296,7 +301,7 @@ const deleteDonation = async (req, res, next) => {
   try {
     const { donationId } = req.params;
     const existingDonation = await DonationModel.findById(donationId);
-    const accessError = ensureDonationAccess(existingDonation, req.user);
+    const accessError = await ensureDonationAccess(existingDonation, req.user);
 
     if (accessError) {
       return res.status(accessError.status).json({
