@@ -109,6 +109,8 @@ DB_NAME=solidarity_app
 JWT_SECRET=change_this_to_a_long_random_secret
 JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:5173
+OPENROUTER_API_KEY=your_openrouter_key
+OPENROUTER_MODEL=openai/gpt-4o-mini
 ```
 
 ### 3. Install & run the backend

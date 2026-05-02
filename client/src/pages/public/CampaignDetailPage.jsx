@@ -530,7 +530,7 @@ const CampaignDetailPage = () => {
               </div>
             </div>
 
-            <div className="mb-8 rounded-2xl border border-slate-100 bg-white p-8 shadow-card">
+            <div id="become-organizer" className="mb-8 scroll-mt-24 rounded-2xl border border-slate-100 bg-white p-8 shadow-card">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="font-display text-2xl font-bold text-slate-900">Become an organizer</h2>

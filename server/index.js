@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const campaignRoutes = require('./routes/campaigns');
 const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
+const assistantRoutes = require('./routes/assistant');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +33,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/assistant', assistantRoutes);
 
 // Error handling
 app.use(notFound);
@@ -40,9 +42,18 @@ app.use(errorHandler);
 // Start server
 const start = async () => {
   await testConnection();
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`📦 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use. Stop the other backend process or set a different PORT in server/.env.`);
+      process.exit(1);
+    }
+
+    throw error;
   });
 };
 

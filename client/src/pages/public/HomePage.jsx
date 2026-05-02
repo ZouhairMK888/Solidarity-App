@@ -3,6 +3,7 @@ import Layout from '../../components/layout/Layout';
 import CampaignCard from '../../components/ui/CampaignCard';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import Button from '../../components/ui/Button';
+import VolunteerAssistant from '../../components/ui/VolunteerAssistant';
 import { useCampaigns } from '../../hooks';
 
 const statuses = ['all', 'active', 'draft', 'completed', 'cancelled'];
@@ -319,6 +320,7 @@ const HomePage = () => {
 
         {!loading && !error && <Pagination pagination={pagination} onPage={goToPage} />}
       </section>
+      <VolunteerAssistant />
     </Layout>
   );
 };

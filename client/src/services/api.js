@@ -96,4 +96,8 @@ export const notificationAPI = {
   markAllAsRead: () => api.patch('/notifications/read-all'),
 };
 
+export const assistantAPI = {
+  chat: (messages) => api.post('/assistant/chat', { messages }),
+};
+
 export default api;
