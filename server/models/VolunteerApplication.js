@@ -42,7 +42,7 @@ class VolunteerApplicationModel {
     return rows[0] || null;
   }
 
-  static async findAllForAdmin({ status } = {}) {
+  static async findManageable({ status, user } = {}) {
     let query = `
       SELECT
         va.id,
@@ -68,6 +68,19 @@ class VolunteerApplicationModel {
     `;
     const params = [];
 
+    if (user?.role !== 'admin') {
+      query += `
+        AND (
+          c.created_by = ?
+          OR EXISTS (
+            SELECT 1 FROM campaign_organizers co
+            WHERE co.campaign_id = c.id AND co.user_id = ? AND co.status = 'active'
+          )
+        )
+      `;
+      params.push(user?.id, user?.id);
+    }
+
     if (status && status !== 'all') {
       query += ' AND va.status = ?';
       params.push(status);
@@ -77,6 +90,10 @@ class VolunteerApplicationModel {
 
     const [rows] = await pool.query(query, params);
     return rows;
+  }
+
+  static async findAllForAdmin({ status } = {}) {
+    return this.findManageable({ status, user: { role: 'admin' } });
   }
 
   static async getStats() {

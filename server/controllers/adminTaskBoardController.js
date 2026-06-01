@@ -59,6 +59,13 @@ const getMissionTaskBoard = async (req, res, next) => {
       });
     }
 
+    if (!await CampaignModel.canUserManage(campaign, req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only open the task board for campaigns assigned to you.',
+      });
+    }
+
     const board = await buildBoard(missionId);
 
     res.status(200).json({
@@ -99,6 +106,13 @@ const updateMissionTaskAssignment = async (req, res, next) => {
       return res.status(404).json({
         success: false,
         message: 'Campaign not found.',
+      });
+    }
+
+    if (!await CampaignModel.canUserManage(campaign, req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only assign tasks for campaigns assigned to you.',
       });
     }
 

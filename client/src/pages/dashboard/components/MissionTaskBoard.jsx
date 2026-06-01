@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import Card from '../../../components/ui/Card';
-import { adminAPI, campaignAPI } from '../../../services/api';
+import { campaignAPI } from '../../../services/api';
 import { taskStatusConfig } from '../../../utils/helpers';
 import { EmptyPanel } from './DashboardPrimitives';
 
@@ -144,7 +144,7 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
 
     setLoadingBoard(true);
     try {
-      const response = await adminAPI.getMissionTaskBoard(missionId);
+      const response = await campaignAPI.getMissionTaskBoard(missionId);
       setBoardData(response.data.data);
     } catch (error) {
       setBoardData(null);
@@ -210,7 +210,7 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
 
     setSavingAssignmentId(assignmentId);
     try {
-      await adminAPI.updateMissionTaskAssignment(selectedMissionId, assignmentId, { taskId });
+      await campaignAPI.updateMissionTaskAssignment(selectedMissionId, assignmentId, { taskId });
       await loadBoard(selectedMissionId);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not move this volunteer right now.');

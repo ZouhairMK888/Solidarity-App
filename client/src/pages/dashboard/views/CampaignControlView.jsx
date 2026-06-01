@@ -5,7 +5,7 @@ import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import { useAuth } from '../../../context/AuthContext';
-import { adminAPI, campaignAPI } from '../../../services/api';
+import { campaignAPI } from '../../../services/api';
 import { formatDate, getAssetUrl, getGoogleMapsUrl } from '../../../utils/helpers';
 import MissionTaskBoard from '../components/MissionTaskBoard';
 import {
@@ -50,22 +50,16 @@ const CampaignControlView = () => {
   }, []);
 
   const loadApplications = useCallback(async (status = applicationsFilter) => {
-    if (!isAdmin) {
-      setApplications([]);
-      setLoadingApplications(false);
-      return;
-    }
-
     setLoadingApplications(true);
     try {
-      const response = await adminAPI.getMissionApplications({ status });
+      const response = await campaignAPI.getMissionApplications({ status });
       setApplications(response.data.data.applications || []);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Unable to load mission requests right now.');
     } finally {
       setLoadingApplications(false);
     }
-  }, [applicationsFilter, isAdmin]);
+  }, [applicationsFilter]);
 
   const loadOrganizerApplications = useCallback(async (status = organizerApplicationsFilter) => {
     setLoadingOrganizerApplications(true);
@@ -116,9 +110,12 @@ const CampaignControlView = () => {
   const handleReviewApplication = async (applicationId, status) => {
     setBusyApplicationId(applicationId);
     try {
-      const response = await adminAPI.reviewMissionApplication(applicationId, { status });
+      const response = await campaignAPI.reviewMissionApplication(applicationId, { status });
       toast.success(response.data.message || `Application ${status}.`);
-      await loadApplications(applicationsFilter);
+      await Promise.all([
+        loadApplications(applicationsFilter),
+        loadCampaigns(),
+      ]);
     } catch (error) {
       toast.error(error.response?.data?.message || `Could not ${status === 'accepted' ? 'accept' : 'reject'} this application.`);
     } finally {
@@ -154,38 +151,26 @@ const CampaignControlView = () => {
             />
             <div className="space-y-4 text-sm text-slate-200">
               <div className="rounded-3xl bg-white/10 p-4">Use this page when you are reviewing campaign readiness, promoting drafts to active campaigns, or closing completed work.</div>
-              <div className="rounded-3xl bg-white/10 p-4">Admins also get the mission request queue here, so approvals stay close to the campaigns they affect.</div>
+              <div className="rounded-3xl bg-white/10 p-4">Admins and organizers get the mission request queue here, so approvals stay close to the campaigns they affect.</div>
               <div className="rounded-3xl bg-white/10 p-4">Accepted volunteer requests automatically enter the mission pool, ready to be dragged into the right task lane.</div>
             </div>
           </div>
         </Card>
 
-        {isAdmin ? (
-          <Card>
-            <SectionTitle
-              title="Request queues"
-              subtitle="Review organizer and volunteer applications from one place."
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-3xl bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
-                {pendingOrganizerCount} pending organizer request{pendingOrganizerCount === 1 ? '' : 's'}.
-              </div>
-              <div className="rounded-3xl bg-amber-50 px-5 py-4 text-sm text-amber-700">
-                {pendingCount} pending mission request{pendingCount === 1 ? '' : 's'}.
-              </div>
+        <Card>
+          <SectionTitle
+            title="Request queues"
+            subtitle={isAdmin ? 'Review organizer and volunteer applications from one place.' : 'Review volunteer requests for campaigns you manage.'}
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-3xl bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
+              {pendingOrganizerCount} pending organizer request{pendingOrganizerCount === 1 ? '' : 's'}.
             </div>
-          </Card>
-        ) : (
-          <Card>
-            <SectionTitle
-              title="Control notes"
-              subtitle="Organizers can manage campaign states here while admins keep approval decisions centralized."
-            />
-            <div className="rounded-3xl bg-slate-50 px-5 py-4 text-sm text-slate-600">
-              Status controls stay on this page so your campaign editor remains focused on content and missions.
+            <div className="rounded-3xl bg-amber-50 px-5 py-4 text-sm text-amber-700">
+              {pendingCount} pending mission request{pendingCount === 1 ? '' : 's'}.
             </div>
-          </Card>
-        )}
+          </div>
+        </Card>
       </section>
 
       <section>
@@ -259,12 +244,10 @@ const CampaignControlView = () => {
         )}
       </section>
 
-      {isAdmin && (
-        loadingCampaigns ? (
-          <Card className="px-6 py-5 text-sm text-slate-500">Loading task board options...</Card>
-        ) : (
-          <MissionTaskBoard campaigns={campaigns} />
-        )
+      {loadingCampaigns ? (
+        <Card className="px-6 py-5 text-sm text-slate-500">Loading task board options...</Card>
+      ) : (
+        <MissionTaskBoard campaigns={campaigns} />
       )}
 
       <section>
@@ -362,8 +345,7 @@ const CampaignControlView = () => {
         )}
       </section>
 
-      {isAdmin && (
-        <section>
+      <section>
           <SectionTitle
             title="Volunteer mission requests"
             subtitle="Accept or reject mission applications without digging through each campaign card."
@@ -471,8 +453,7 @@ const CampaignControlView = () => {
           ) : (
             <EmptyPanel title="No mission requests in this filter" description="Try another filter or wait for volunteers to apply to open missions." />
           )}
-        </section>
-      )}
+      </section>
     </div>
   );
 };

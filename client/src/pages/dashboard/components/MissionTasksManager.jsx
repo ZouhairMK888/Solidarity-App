@@ -139,7 +139,7 @@ const MissionTasksManager = ({ campaignId, mission, onTasksChanged }) => {
         <div>
           <h5 className="font-display text-lg text-slate-900">{editingTaskId ? 'Edit task' : 'Mission tasks'}</h5>
           <p className="text-sm text-slate-500">
-            Break this mission into concrete tasks so admins can drag volunteers into the right slots.
+            Break this mission into concrete tasks so admins and organizers can drag volunteers into the right slots.
           </p>
         </div>
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
@@ -214,7 +214,7 @@ const MissionTasksManager = ({ campaignId, mission, onTasksChanged }) => {
           <p className="text-sm text-slate-500">
             {loading
               ? 'Refreshing task data...'
-              : 'These task slots will appear in the admin assignment board.'}
+              : 'These task slots will appear in the assignment board.'}
           </p>
         </div>
 
@@ -278,7 +278,7 @@ const MissionTasksManager = ({ campaignId, mission, onTasksChanged }) => {
         ) : (
           <EmptyPanel
             title="No tasks for this mission yet"
-            description="Create at least one task here, then admins can distribute accepted volunteers across the mission board."
+            description="Create at least one task here, then admins and organizers can distribute accepted volunteers across the mission board."
           />
         )}
       </div>

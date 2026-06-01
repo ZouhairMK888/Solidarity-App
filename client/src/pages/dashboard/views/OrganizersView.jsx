@@ -217,7 +217,7 @@ const OrganizersView = () => {
               subtitle="Keep organizer access clean and the platform roles easy to understand."
             />
             <div className="space-y-4 text-sm text-slate-200">
-              <div className="rounded-3xl bg-white/10 p-4">Organizers can build campaigns and missions, but only admins can create organizer accounts and review volunteer requests.</div>
+              <div className="rounded-3xl bg-white/10 p-4">Organizers can build campaigns, manage missions, review volunteer requests, and assign accepted volunteers to task lanes.</div>
               <div className="rounded-3xl bg-white/10 p-4">Use the user editor below when you need to correct names, change roles, or deactivate unused accounts.</div>
               <div className="rounded-3xl bg-white/10 p-4">A lighter admin panel is easier to scan, so this page focuses only on people and permissions.</div>
             </div>

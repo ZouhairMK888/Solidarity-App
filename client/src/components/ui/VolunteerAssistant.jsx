@@ -25,6 +25,10 @@ const SendIcon = () => (
 
 const normalizeAssistantText = (content) => (
   content
+    .replace(/^\s*[-*]?\s*\[Campaign details\]\(https?:\/\/[^)]+\)\s*$/gim, '')
+    .replace(/^\s*[-*]?\s*Open campaign page:\s*https?:\/\/\S+\s*$/gim, '')
+    .replace(/^\s*[-*]?\s*Campaign details\s*$/gim, '')
+    .replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1')
     .replace(/\s+(\d+)\.\s+/g, '\n$1. ')
     .replace(/\s+-\s+/g, '\n- ')
     .trim()

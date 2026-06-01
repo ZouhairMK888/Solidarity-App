@@ -24,6 +24,14 @@ const {
 } = require('../controllers/missionTaskController');
 const { applyToMission } = require('../controllers/missionApplicationController');
 const {
+  getMissionApplications,
+  reviewMissionApplication,
+} = require('../controllers/adminApplicationController');
+const {
+  getMissionTaskBoard,
+  updateMissionTaskAssignment,
+} = require('../controllers/adminTaskBoardController');
+const {
   applyToOrganizeCampaign,
   getOrganizerApplications,
   reviewOrganizerApplication,
@@ -40,7 +48,9 @@ const { uploadCampaignImage } = require('../middleware/upload');
 
 router.get('/', getAllCampaigns);
 router.get('/donations/manage', authenticate, getManageableDonations);
+router.get('/mission-applications/manage', authenticate, getMissionApplications);
 router.get('/organizer-applications/manage', authenticate, getOrganizerApplications);
+router.get('/missions/:missionId/task-board', authenticate, getMissionTaskBoard);
 router.get('/manage', authenticate, getManageableCampaigns);
 router.get('/:id/missions', optionalAuthenticate, getCampaignMissions);
 router.get('/:id/missions/:missionId/tasks', authenticate, getMissionTasks);
@@ -54,6 +64,8 @@ router.post('/:id/donations', optionalAuthenticate, createDonation);
 router.put('/donations/:donationId', authenticate, updateDonation);
 router.put('/:id', authenticate, uploadCampaignImage.single('image'), updateCampaign);
 router.patch('/organizer-applications/:applicationId/status', authenticate, reviewOrganizerApplication);
+router.patch('/mission-applications/:id/status', authenticate, reviewMissionApplication);
+router.patch('/missions/:missionId/assignments/:assignmentId', authenticate, updateMissionTaskAssignment);
 router.patch('/donations/:donationId/status', authenticate, updateDonationStatus);
 router.put('/:id/missions/:missionId', authenticate, updateMission);
 router.put('/:id/missions/:missionId/tasks/:taskId', authenticate, updateMissionTask);
